@@ -1,0 +1,122 @@
+package main
+
+import (
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/printer"
+	"go/token"
+	"log"
+	"os"
+)
+
+// visitFn is a wrapper to make plain functions implement the ast.Visitor interface.
+type visitFn func(ast.Node) ast.Visitor
+
+// Visit is part of the ast.Visitor interface.
+func (v visitFn) Visit(n ast.Node) ast.Visitor {
+	return v(n)
+}
+
+func main() {
+	if len(os.Args) != 2 {
+		fmt.Println("Must pass a single *.go file.")
+		os.Exit(1)
+	}
+	fs := token.NewFileSet()
+	parsed, err := parser.ParseFile(fs, os.Args[1], nil, 0)
+	if err != nil {
+		log.Fatalf("error during parsing: %v", err)
+	}
+	ast.Walk(visitFn(addImport), parsed)
+	/*
+		//ast.Inspect(parsed, inspect)
+		//cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
+		//cfg.Fprint(os.Stdout, fs, parsed)
+		for fn := range fnsCalled {
+			fmt.Println(fn.Name)
+		}
+	*/
+	cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
+	cfg.Fprint(os.Stdout, fs, parsed)
+}
+
+func addImport(node ast.Node) ast.Visitor {
+	switch node.(type) {
+	case *ast.File:
+		return visitFn(addImport)
+	}
+	genDecl, ok := node.(*ast.GenDecl)
+	if !ok {
+		return nil
+	}
+	if genDecl.Tok != token.IMPORT {
+		return nil
+	}
+	genDecl.Specs = append(genDecl.Specs, &ast.ImportSpec{
+		Path: &ast.BasicLit{
+			Kind:  token.STRING,
+			Value: `"github.com/jeremyschlatter/godebug"`,
+		},
+	})
+	return nil
+}
+
+/*
+var fnsCalled map[*ast.Object]bool
+func findMain(node ast.Node) ast.Visitor {
+	fn, ok := node.(*ast.FuncDecl)
+	if ok && fn.Name.Name == "main" {
+		return visitFn(traceMain)
+	}
+	return visitFn(findMain)
+}
+
+func traceMain(node ast.Node) ast.Visitor {
+	callExpr, ok := node.(*ast.CallExpr)
+	if !ok {
+		return visitFn(traceMain)
+	}
+	var fn *ast.Ident
+	switch i := callExpr.Fun.(type) {
+	case *ast.Ident:
+		fn = i
+	case *ast.SelectorExpr:
+		fmt.Printf("%#v\n", i.X.(*ast.Ident).Obj)
+		fmt.Printf("%#v\n", i.Sel)
+		fn = i.Sel
+	default:
+		return visitFn(traceMain)
+	}
+	if fn.Obj == nil || fn.Obj.Name == "Hello" {
+		fmt.Println("hello")
+		return visitFn(traceMain)
+	}
+	if fnsCalled[fn.Obj] {
+		return visitFn(traceMain)
+	}
+	fnsCalled[fn.Obj] = true
+	ast.Walk(visitFn(traceMain), fn.Obj.Decl.(*ast.FuncDecl))
+	return visitFn(traceMain)
+}
+*/
+
+/*
+func inspect(node ast.Node) bool {
+	fn, ok := node.(*ast.FuncDecl)
+	if !ok {
+		return true
+	}
+	switch fn.Name.Name {
+	case "foo":
+	default:
+		return true
+	}
+	ctx := ast.Field{
+		Names: []*ast.Ident{ast.NewIdent("ctx")},
+		Type:  ast.NewIdent("Context"),
+	}
+	fn.Type.Params.List = append([]*ast.Field{&ctx}, fn.Type.Params.List...)
+	return true
+}
+*/
