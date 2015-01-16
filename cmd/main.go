@@ -42,6 +42,32 @@ func main() {
 	cfg.Fprint(os.Stdout, fs, parsed)
 }
 
+func newGodebugCall(fnName string) *ast.ExprStmt {
+	return &ast.ExprStmt{
+		X: &ast.CallExpr{
+			Fun: &ast.SelectorExpr{
+				X:   ast.NewIdent("godebug"),
+				Sel: ast.NewIdent(fnName),
+			},
+		},
+	}
+}
+
+func addLineFuncsToBlock(blk *ast.BlockStmt) {
+	if blk == nil {
+		return
+	}
+	newBody := make([]ast.Stmt, 0, 2*len(blk.List))
+	for _, stmt := range blk.List {
+		newBody = append(newBody, newGodebugCall("Line"))
+		if ifstmt, ok := stmt.(*ast.IfStmt); ok {
+			addLineFuncsToBlock(ifstmt.Body)
+		}
+		newBody = append(newBody, stmt)
+	}
+	blk.List = newBody
+}
+
 func addLineFuncs(node ast.Node) ast.Visitor {
 	if _, ok := node.(*ast.File); ok {
 		return visitFn(addLineFuncs)
@@ -50,27 +76,12 @@ func addLineFuncs(node ast.Node) ast.Visitor {
 	if !ok {
 		return nil
 	}
-	if fn.Body == nil {
-		return nil
-	}
 	/*
 		for i := range fn.Body.List {
 			fmt.Printf("%T\n", fn.Body.List[i].(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr).X)
 		}
 	*/
-	newBody := make([]ast.Stmt, 2*len(fn.Body.List))
-	for i := 0; i < len(newBody); i += 2 {
-		newBody[i] = &ast.ExprStmt{
-			X: &ast.CallExpr{
-				Fun: &ast.SelectorExpr{
-					X:   ast.NewIdent("godebug"),
-					Sel: ast.NewIdent("Line"),
-				},
-			},
-		}
-		newBody[i+1] = fn.Body.List[i/2]
-	}
-	fn.Body.List = newBody
+	addLineFuncsToBlock(fn.Body)
 	return nil
 }
 
