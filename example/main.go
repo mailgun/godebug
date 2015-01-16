@@ -8,6 +8,7 @@ import (
 
 func main() {
 	x := mul(1, 2)
+	SetTrace()
 	x = mul(x, x)
 	if x == 4 {
 		fmt.Println("It works! x == 4.")
