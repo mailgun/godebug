@@ -7,8 +7,13 @@ import (
 )
 
 func main() {
-	x := mul(2, 2)
-	fmt.Println(mul(x, x))
+	x := mul(1, 2)
+	x = mul(x, x)
+	if x == 4 {
+		fmt.Println("It works! x == 4.")
+	} else {
+		fmt.Println("What's going on? x ==", x)
+	}
 }
 
 func add(n, m int) int {
