@@ -8,6 +8,7 @@ import (
 
 func main() {
 	x := mul(1, 2)
+	RecordVars(&x, "x")
 	SetTrace()
 	x = mul(x, x)
 	if x == 4 {

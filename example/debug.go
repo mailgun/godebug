@@ -5,8 +5,25 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"reflect"
 	"runtime"
 )
+
+var vars = make(map[string]interface{})
+
+func RecordVars(varmaps ...interface{}) {
+	var i int
+	for i = 0; i+1 < len(varmaps); i += 2 {
+		s, ok := varmaps[i+1].(string)
+		if !ok {
+			panic("programming error: got even-numbered argument to RecordVars that was not a string")
+		}
+		vars[s] = varmaps[i]
+	}
+	if i != len(varmaps) {
+		panic("programming error: called RecordVars with odd number of arguments")
+	}
+}
 
 // SetTrace is the entrypoint to the debugger.
 func SetTrace() {
@@ -21,14 +38,24 @@ func init() {
 }
 
 func waitForInput() {
+	var in []byte
 	for {
 		fmt.Print("(godebug) ")
 		if !input.Scan() {
 			fmt.Println("quitting session")
 			return
 		}
-		fmt.Printf("Nothing is implemented yet. But you typed: %q\n", input.Text())
+		in = input.Bytes()
+		if v, ok := vars[string(bytes.TrimSpace(in))]; ok {
+			fmt.Println(dereference(v))
+			continue
+		}
+		fmt.Printf("Only variable printing is implemented. You typed: %q\n", input.Text())
 	}
+}
+
+func dereference(i interface{}) interface{} {
+	return reflect.ValueOf(i).Elem().Interface()
 }
 
 func printLine() {
