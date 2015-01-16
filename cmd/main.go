@@ -42,15 +42,11 @@ func main() {
 }
 
 func addImport(node ast.Node) ast.Visitor {
-	switch node.(type) {
-	case *ast.File:
+	if _, ok := node.(*ast.File); ok {
 		return visitFn(addImport)
 	}
 	genDecl, ok := node.(*ast.GenDecl)
-	if !ok {
-		return nil
-	}
-	if genDecl.Tok != token.IMPORT {
+	if !ok || genDecl.Tok != token.IMPORT {
 		return nil
 	}
 	genDecl.Specs = append(genDecl.Specs, &ast.ImportSpec{
