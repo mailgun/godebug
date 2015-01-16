@@ -63,6 +63,14 @@ func addLineFuncsToIf(ifstmt *ast.IfStmt) {
 	}
 }
 
+func addLineFuncsToFor(forstmt *ast.ForStmt) {
+	addLineFuncsToBlock(forstmt.Body)
+}
+
+func addLineFuncsToRange(rangestmt *ast.RangeStmt) {
+	addLineFuncsToBlock(rangestmt.Body)
+}
+
 func addLineFuncsToBlock(blk *ast.BlockStmt) {
 	if blk == nil {
 		return
@@ -72,6 +80,12 @@ func addLineFuncsToBlock(blk *ast.BlockStmt) {
 		newBody = append(newBody, newGodebugCall("Line"))
 		if ifstmt, ok := stmt.(*ast.IfStmt); ok {
 			addLineFuncsToIf(ifstmt)
+		}
+		if forstmt, ok := stmt.(*ast.ForStmt); ok {
+			addLineFuncsToFor(forstmt)
+		}
+		if forstmt, ok := stmt.(*ast.RangeStmt); ok {
+			addLineFuncsToRange(forstmt)
 		}
 		newBody = append(newBody, stmt)
 	}
