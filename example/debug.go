@@ -7,10 +7,12 @@ import (
 	"os"
 	"reflect"
 	"runtime"
+	"strings"
 )
 
 var vars = make(map[string]interface{})
 
+// RecordVars records the mapping between variable names and their values.
 func RecordVars(varmaps ...interface{}) {
 	var i int
 	for i = 0; i+1 < len(varmaps); i += 2 {
@@ -25,10 +27,78 @@ func RecordVars(varmaps ...interface{}) {
 	}
 }
 
-// SetTrace is the entrypoint to the debugger.
-func SetTrace() {
+// OutOfScope marks variables as having gone out of scope.
+func OutOfScope(names ...string) {
+	for _, n := range names {
+		delete(vars, n)
+	}
+}
+
+type state int
+
+const (
+	run state = iota
+	next
+	step
+)
+
+var currentState state
+var currentDepth int
+var debuggerDepth int
+
+// EnterFunc marks the beginning of a function.
+func EnterFunc() {
+	currentDepth++
+}
+
+// ExitFunc marks the end of a function.
+func ExitFunc() {
+	currentDepth--
+}
+
+// Line marks a normal line where the debugger might pause.
+func Line() {
+	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
+		return
+	}
+	debuggerDepth = currentDepth
 	printLine()
 	waitForInput()
+}
+
+var skipNextElseIfExpr bool
+
+// ElseIfSimpleStmt marks a simple statement preceding an "else if" expression.
+func ElseIfSimpleStmt(line string) {
+	SLine(line)
+	if currentState == next {
+		skipNextElseIfExpr = true
+	}
+}
+
+// ElseIfExpr marks an "else if" expression.
+func ElseIfExpr(line string) {
+	if skipNextElseIfExpr {
+		skipNextElseIfExpr = false
+		return
+	}
+	SLine(line)
+}
+
+// SLine is like Line, except that the debugger should print the provided line rather than
+// reading the next line from the source code.
+func SLine(line string) {
+	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
+		return
+	}
+	debuggerDepth = currentDepth
+	fmt.Println("->", line)
+	waitForInput()
+}
+
+// SetTrace is the entrypoint to the debugger.
+func SetTrace() {
+	currentState = step
 }
 
 var input *bufio.Scanner
@@ -38,19 +108,35 @@ func init() {
 }
 
 func waitForInput() {
-	var in []byte
 	for {
 		fmt.Print("(godebug) ")
 		if !input.Scan() {
 			fmt.Println("quitting session")
+			currentState = run
 			return
 		}
-		in = input.Bytes()
-		if v, ok := vars[string(bytes.TrimSpace(in))]; ok {
+		s := input.Text()
+		switch s {
+		case "n", "next":
+			currentState = next
+			return
+		case "s", "step":
+			currentState = step
+			return
+		}
+		if v, ok := vars[strings.TrimSpace(s)]; ok {
 			fmt.Println(dereference(v))
 			continue
 		}
-		fmt.Printf("Only variable printing is implemented. You typed: %q\n", input.Text())
+		var cmd, name string
+		n, _ := fmt.Sscan(s, &cmd, &name)
+		if n == 2 && (cmd == "p" || cmd == "print") {
+			if v, ok := vars[strings.TrimSpace(name)]; ok {
+				fmt.Println(dereference(v))
+				continue
+			}
+		}
+		fmt.Printf("Command not recognized, sorry! You typed: %q\n", s)
 	}
 }
 
