@@ -37,8 +37,41 @@ func main() {
 			fmt.Println(fn.Name)
 		}
 	*/
+	ast.Walk(visitFn(addLineFuncs), parsed)
 	cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 	cfg.Fprint(os.Stdout, fs, parsed)
+}
+
+func addLineFuncs(node ast.Node) ast.Visitor {
+	if _, ok := node.(*ast.File); ok {
+		return visitFn(addLineFuncs)
+	}
+	fn, ok := node.(*ast.FuncDecl)
+	if !ok {
+		return nil
+	}
+	if fn.Body == nil {
+		return nil
+	}
+	/*
+		for i := range fn.Body.List {
+			fmt.Printf("%T\n", fn.Body.List[i].(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr).X)
+		}
+	*/
+	newBody := make([]ast.Stmt, 2*len(fn.Body.List))
+	for i := 0; i < len(newBody); i += 2 {
+		newBody[i] = &ast.ExprStmt{
+			X: &ast.CallExpr{
+				Fun: &ast.SelectorExpr{
+					X:   ast.NewIdent("godebug"),
+					Sel: ast.NewIdent("Line"),
+				},
+			},
+		}
+		newBody[i+1] = fn.Body.List[i/2]
+	}
+	fn.Body.List = newBody
+	return nil
 }
 
 func addImport(node ast.Node) ast.Visitor {
