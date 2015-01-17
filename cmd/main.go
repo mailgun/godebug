@@ -9,6 +9,8 @@ import (
 	"log"
 	"os"
 	"strconv"
+
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 // visitFn is a wrapper to make plain functions implement the ast.Visitor interface.
@@ -29,7 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error during parsing: %v", err)
 	}
-	ast.Walk(visitFn(addImport), parsed)
+	astutil.AddImport(fs, parsed, "github.com/jeremyschlatter/godebug")
 	/*
 		//ast.Inspect(parsed, inspect)
 		//cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
@@ -189,23 +191,6 @@ func process(node ast.Node) ast.Visitor {
 			},
 		}, fn.Body.List...)
 	}
-	return nil
-}
-
-func addImport(node ast.Node) ast.Visitor {
-	if _, ok := node.(*ast.File); ok {
-		return visitFn(addImport)
-	}
-	genDecl, ok := node.(*ast.GenDecl)
-	if !ok || genDecl.Tok != token.IMPORT {
-		return nil
-	}
-	genDecl.Specs = append(genDecl.Specs, &ast.ImportSpec{
-		Path: &ast.BasicLit{
-			Kind:  token.STRING,
-			Value: `"github.com/jeremyschlatter/godebug"`,
-		},
-	})
 	return nil
 }
 
