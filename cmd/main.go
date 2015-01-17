@@ -76,6 +76,80 @@ func addLineFuncsToRange(rangestmt *ast.RangeStmt) {
 	addLineFuncsToBlock(rangestmt.Body)
 }
 
+// appendIdentToRecordVars adds a new identifier to a godebug.RecordVars call.
+// Given an *ast.Ident that corresponds to a variable "foo" and an *ast.CallExpr
+// that corresponds to a call `godebug.RecordVars(&x, "x")`, this function
+// modifies the call to the ast that corresponds to the new call
+// `godebug.RecordVars(&x, "x", &foo, "foo")`.
+func appendIdentToRecordVars(call *ast.CallExpr, ident *ast.Ident) {
+	// Don't record the blank identifier.
+	if ident.Name == "_" {
+		return
+	}
+	call.Args = append(call.Args, []ast.Expr{
+		&ast.UnaryExpr{
+			Op: token.AND,
+			X:  ident,
+		},
+		&ast.BasicLit{
+			Kind:  token.STRING,
+			Value: strconv.Quote(ident.Name),
+		},
+	}...)
+}
+
+// recordVarsIfNeeded generates a call to godebug.RecordVars for the
+// variables declared in stmt, if any.
+func recordVarsIfNeeded(stmt ast.Stmt) *ast.ExprStmt {
+	switch i := stmt.(type) {
+	case *ast.DeclStmt:
+		return recordVarsFromDecl(i.Decl.(*ast.GenDecl))
+	case *ast.AssignStmt:
+		return recordVarsFromAssign(i)
+	default:
+		return nil
+	}
+}
+
+// recordVarsFromDecl is for declarations using the keyword "var"
+func recordVarsFromDecl(decl *ast.GenDecl) *ast.ExprStmt {
+	if decl.Tok != token.VAR {
+		return nil
+	}
+	call := newGodebugCall("RecordVars")
+	for _, specs := range decl.Specs {
+		for _, ident := range specs.(*ast.ValueSpec).Names {
+			appendIdentToRecordVars(call, ident)
+		}
+	}
+	if len(call.Args) == 0 {
+		return nil
+	}
+	return &ast.ExprStmt{
+		X: call,
+	}
+}
+
+// recordVarsFromAssign is for short variable declarations
+func recordVarsFromAssign(assign *ast.AssignStmt) *ast.ExprStmt {
+	// Ignore plain assignments. We're just looking for declarations.
+	if assign.Tok != token.DEFINE {
+		return nil
+	}
+	call := newGodebugCall("RecordVars")
+	for _, expr := range assign.Lhs {
+		if ident, ok := expr.(*ast.Ident); ok {
+			appendIdentToRecordVars(call, ident)
+		}
+	}
+	if len(call.Args) == 0 {
+		return nil
+	}
+	return &ast.ExprStmt{
+		X: call,
+	}
+}
+
 func addLineFuncsToBlock(blk *ast.BlockStmt) {
 	if blk == nil {
 		return
@@ -93,27 +167,8 @@ func addLineFuncsToBlock(blk *ast.BlockStmt) {
 			addLineFuncsToRange(forstmt)
 		}
 		newBody = append(newBody, stmt)
-		if varDecl, ok := stmt.(*ast.DeclStmt); ok {
-			if genDecl := varDecl.Decl.(*ast.GenDecl); genDecl.Tok == token.VAR {
-				call := newGodebugCall("RecordVars")
-				for _, specs := range genDecl.Specs {
-					for _, ident := range specs.(*ast.ValueSpec).Names {
-						call.Args = append(call.Args, []ast.Expr{
-							&ast.UnaryExpr{
-								Op: token.AND,
-								X:  ident,
-							},
-							&ast.BasicLit{
-								Kind:  token.STRING,
-								Value: strconv.Quote(ident.Name),
-							},
-						}...)
-					}
-				}
-				newBody = append(newBody, &ast.ExprStmt{
-					X: call,
-				})
-			}
+		if call := recordVarsIfNeeded(stmt); call != nil {
+			newBody = append(newBody, call)
 		}
 	}
 	blk.List = newBody
@@ -127,11 +182,6 @@ func addLineFuncs(node ast.Node) ast.Visitor {
 	if !ok {
 		return nil
 	}
-	/*
-		for i := range fn.Body.List {
-			fmt.Printf("%T\n", fn.Body.List[i].(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr).X)
-		}
-	*/
 	addLineFuncsToBlock(fn.Body)
 	if fn.Body != nil {
 		fn.Body.List = append([]ast.Stmt{
