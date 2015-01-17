@@ -25,13 +25,15 @@ func (v visitFn) Visit(n ast.Node) ast.Visitor {
 
 var defs = make(map[*ast.Ident]types.Object)
 var pkgName string
+var fs *token.FileSet
+var file *os.File
 
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Println("Must pass a single *.go file.")
 		os.Exit(1)
 	}
-	fs := token.NewFileSet()
+	fs = token.NewFileSet()
 	parsed, err := parser.ParseFile(fs, os.Args[1], nil, 0)
 	if err != nil {
 		log.Fatalf("error during parsing: %v", err)
@@ -41,8 +43,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("error during type checking: %v", err)
 	}
-	astutil.AddImport(fs, parsed, "github.com/jeremyschlatter/godebug")
+	file, err = os.Open(os.Args[1])
+	if err != nil {
+		log.Fatal("error opening file:", err)
+	}
+	defer file.Close()
 	ast.Walk(visitFn(process), parsed)
+	astutil.AddImport(fs, parsed, "github.com/jeremyschlatter/godebug")
 	cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 	cfg.Fprint(os.Stdout, fs, parsed)
 }
@@ -62,12 +69,27 @@ func newGodebugCall(fnName string) *ast.CallExpr {
 	}
 }
 
+func getText(start, end token.Pos) (text string) {
+	startOffset, endOffset := fs.Position(start).Offset, fs.Position(end).Offset
+	buf := make([]byte, 2+endOffset-startOffset)
+	n, err := file.ReadAt(buf, int64(startOffset-1))
+	text = string(buf[:n])
+	if err != nil {
+		text += "<< Error reading source >>"
+	}
+	return
+}
+
 func processIf(ifstmt *ast.IfStmt) {
 	processBlock(ifstmt.Body)
 	switch i := ifstmt.Else.(type) {
 	case *ast.IfStmt:
 		processIf(i)
 	case *ast.BlockStmt:
+		elseText := getText(ifstmt.Body.End(), i.Lbrace)
+		elseCall := newGodebugCall("SLine")
+		elseCall.Args = append(elseCall.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
+		i.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, i.List...)
 		processBlock(i)
 	}
 }
