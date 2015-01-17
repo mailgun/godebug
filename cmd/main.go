@@ -24,6 +24,7 @@ func (v visitFn) Visit(n ast.Node) ast.Visitor {
 }
 
 var defs = make(map[*ast.Ident]types.Object)
+var pkgName string
 
 func main() {
 	if len(os.Args) != 2 {
@@ -35,6 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error during parsing: %v", err)
 	}
+	pkgName = parsed.Name.Name
 	_, err = (&types.Config{}).Check(parsed.Name.Name, fs, []*ast.File{parsed}, &types.Info{Defs: defs})
 	if err != nil {
 		log.Fatalf("error during type checking: %v", err)
@@ -197,11 +199,14 @@ func process(node ast.Node) ast.Visitor {
 		return nil
 	}
 	cleanupCall := processBlock(fn.Body)
-	prepend := []ast.Stmt{
-		newGodebugExpr("EnterFunc"),
-		&ast.DeferStmt{
-			Call: newGodebugCall("ExitFunc"),
-		},
+	var prepend []ast.Stmt
+	if !(pkgName == "main" && fn.Name.Name == "main") {
+		prepend = []ast.Stmt{
+			newGodebugExpr("EnterFunc"),
+			&ast.DeferStmt{
+				Call: newGodebugCall("ExitFunc"),
+			},
+		}
 	}
 	if cleanupCall != nil {
 		prepend = append(prepend, &ast.DeferStmt{
