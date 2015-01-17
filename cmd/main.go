@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"log"
 	"os"
+	"strconv"
 )
 
 // visitFn is a wrapper to make plain functions implement the ast.Visitor interface.
@@ -92,6 +93,28 @@ func addLineFuncsToBlock(blk *ast.BlockStmt) {
 			addLineFuncsToRange(forstmt)
 		}
 		newBody = append(newBody, stmt)
+		if varDecl, ok := stmt.(*ast.DeclStmt); ok {
+			if genDecl := varDecl.Decl.(*ast.GenDecl); genDecl.Tok == token.VAR {
+				call := newGodebugCall("RecordVars")
+				for _, specs := range genDecl.Specs {
+					for _, ident := range specs.(*ast.ValueSpec).Names {
+						call.Args = append(call.Args, []ast.Expr{
+							&ast.UnaryExpr{
+								Op: token.AND,
+								X:  ident,
+							},
+							&ast.BasicLit{
+								Kind:  token.STRING,
+								Value: strconv.Quote(ident.Name),
+							},
+						}...)
+					}
+				}
+				newBody = append(newBody, &ast.ExprStmt{
+					X: call,
+				})
+			}
+		}
 	}
 	blk.List = newBody
 }
