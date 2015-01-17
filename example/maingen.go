@@ -8,10 +8,10 @@ import (
 )
 
 func main() {
+	defer godebug.OutOfScope("x")
 	godebug.Line()
 	x := mul(1, 2)
 	godebug.RecordVars(&x, "x")
-	defer godebug.OutOfScope("x")
 	godebug.SetTrace()
 	godebug.Line()
 	x = mul(x, x)
