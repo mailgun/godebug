@@ -42,13 +42,17 @@ func main() {
 	cfg.Fprint(os.Stdout, fs, parsed)
 }
 
-func newGodebugCall(fnName string) *ast.ExprStmt {
+func newGodebugExpr(fnName string) *ast.ExprStmt {
 	return &ast.ExprStmt{
-		X: &ast.CallExpr{
-			Fun: &ast.SelectorExpr{
-				X:   ast.NewIdent("godebug"),
-				Sel: ast.NewIdent(fnName),
-			},
+		X: newGodebugCall(fnName),
+	}
+}
+
+func newGodebugCall(fnName string) *ast.CallExpr {
+	return &ast.CallExpr{
+		Fun: &ast.SelectorExpr{
+			X:   ast.NewIdent("godebug"),
+			Sel: ast.NewIdent(fnName),
 		},
 	}
 }
@@ -77,7 +81,7 @@ func addLineFuncsToBlock(blk *ast.BlockStmt) {
 	}
 	newBody := make([]ast.Stmt, 0, 2*len(blk.List))
 	for _, stmt := range blk.List {
-		newBody = append(newBody, newGodebugCall("Line"))
+		newBody = append(newBody, newGodebugExpr("Line"))
 		if ifstmt, ok := stmt.(*ast.IfStmt); ok {
 			addLineFuncsToIf(ifstmt)
 		}
@@ -106,6 +110,14 @@ func addLineFuncs(node ast.Node) ast.Visitor {
 		}
 	*/
 	addLineFuncsToBlock(fn.Body)
+	if fn.Body != nil {
+		fn.Body.List = append([]ast.Stmt{
+			newGodebugExpr("EnterFunc"),
+			&ast.DeferStmt{
+				Call: newGodebugCall("ExitFunc"),
+			},
+		}, fn.Body.List...)
+	}
 	return nil
 }
 
