@@ -32,14 +32,6 @@ func main() {
 		log.Fatalf("error during parsing: %v", err)
 	}
 	astutil.AddImport(fs, parsed, "github.com/jeremyschlatter/godebug")
-	/*
-		//ast.Inspect(parsed, inspect)
-		//cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-		//cfg.Fprint(os.Stdout, fs, parsed)
-		for fn := range fnsCalled {
-			fmt.Println(fn.Name)
-		}
-	*/
 	ast.Walk(visitFn(process), parsed)
 	cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 	cfg.Fprint(os.Stdout, fs, parsed)
@@ -193,62 +185,3 @@ func process(node ast.Node) ast.Visitor {
 	}
 	return nil
 }
-
-/*
-var fnsCalled map[*ast.Object]bool
-func findMain(node ast.Node) ast.Visitor {
-	fn, ok := node.(*ast.FuncDecl)
-	if ok && fn.Name.Name == "main" {
-		return visitFn(traceMain)
-	}
-	return visitFn(findMain)
-}
-
-func traceMain(node ast.Node) ast.Visitor {
-	callExpr, ok := node.(*ast.CallExpr)
-	if !ok {
-		return visitFn(traceMain)
-	}
-	var fn *ast.Ident
-	switch i := callExpr.Fun.(type) {
-	case *ast.Ident:
-		fn = i
-	case *ast.SelectorExpr:
-		fmt.Printf("%#v\n", i.X.(*ast.Ident).Obj)
-		fmt.Printf("%#v\n", i.Sel)
-		fn = i.Sel
-	default:
-		return visitFn(traceMain)
-	}
-	if fn.Obj == nil || fn.Obj.Name == "Hello" {
-		fmt.Println("hello")
-		return visitFn(traceMain)
-	}
-	if fnsCalled[fn.Obj] {
-		return visitFn(traceMain)
-	}
-	fnsCalled[fn.Obj] = true
-	ast.Walk(visitFn(traceMain), fn.Obj.Decl.(*ast.FuncDecl))
-	return visitFn(traceMain)
-}
-*/
-
-/*
-func inspect(node ast.Node) bool {
-	fn, ok := node.(*ast.FuncDecl)
-	if !ok {
-		return true
-	}
-	switch fn.Name.Name {
-	case "foo":
-	default:
-		return true
-	}
-	ctx := ast.Field{
-		Names: []*ast.Ident{ast.NewIdent("ctx")},
-		Type:  ast.NewIdent("Context"),
-	}
-	fn.Type.Params.List = append([]*ast.Field{&ctx}, fn.Type.Params.List...)
-	return true
-}
-*/
