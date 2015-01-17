@@ -38,7 +38,7 @@ func main() {
 			fmt.Println(fn.Name)
 		}
 	*/
-	ast.Walk(visitFn(addLineFuncs), parsed)
+	ast.Walk(visitFn(process), parsed)
 	cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 	cfg.Fprint(os.Stdout, fs, parsed)
 }
@@ -58,22 +58,22 @@ func newGodebugCall(fnName string) *ast.CallExpr {
 	}
 }
 
-func addLineFuncsToIf(ifstmt *ast.IfStmt) {
-	addLineFuncsToBlock(ifstmt.Body)
+func processIf(ifstmt *ast.IfStmt) {
+	processBlock(ifstmt.Body)
 	switch i := ifstmt.Else.(type) {
 	case *ast.IfStmt:
-		addLineFuncsToIf(i)
+		processIf(i)
 	case *ast.BlockStmt:
-		addLineFuncsToBlock(i)
+		processBlock(i)
 	}
 }
 
-func addLineFuncsToFor(forstmt *ast.ForStmt) {
-	addLineFuncsToBlock(forstmt.Body)
+func processFor(forstmt *ast.ForStmt) {
+	processBlock(forstmt.Body)
 }
 
-func addLineFuncsToRange(rangestmt *ast.RangeStmt) {
-	addLineFuncsToBlock(rangestmt.Body)
+func processRange(rangestmt *ast.RangeStmt) {
+	processBlock(rangestmt.Body)
 }
 
 // appendIdentToRecordVars adds a new identifier to a godebug.RecordVars call.
@@ -98,8 +98,6 @@ func appendIdentToRecordVars(call *ast.CallExpr, ident *ast.Ident) {
 	}...)
 }
 
-// recordVarsIfNeeded generates a call to godebug.RecordVars for the
-// variables declared in stmt, if any.
 func recordVarsIfNeeded(stmt ast.Stmt) *ast.ExprStmt {
 	switch i := stmt.(type) {
 	case *ast.DeclStmt:
@@ -150,7 +148,7 @@ func recordVarsFromAssign(assign *ast.AssignStmt) *ast.ExprStmt {
 	}
 }
 
-func addLineFuncsToBlock(blk *ast.BlockStmt) {
+func processBlock(blk *ast.BlockStmt) {
 	if blk == nil {
 		return
 	}
@@ -158,13 +156,13 @@ func addLineFuncsToBlock(blk *ast.BlockStmt) {
 	for _, stmt := range blk.List {
 		newBody = append(newBody, newGodebugExpr("Line"))
 		if ifstmt, ok := stmt.(*ast.IfStmt); ok {
-			addLineFuncsToIf(ifstmt)
+			processIf(ifstmt)
 		}
 		if forstmt, ok := stmt.(*ast.ForStmt); ok {
-			addLineFuncsToFor(forstmt)
+			processFor(forstmt)
 		}
 		if forstmt, ok := stmt.(*ast.RangeStmt); ok {
-			addLineFuncsToRange(forstmt)
+			processRange(forstmt)
 		}
 		newBody = append(newBody, stmt)
 		if call := recordVarsIfNeeded(stmt); call != nil {
@@ -174,15 +172,15 @@ func addLineFuncsToBlock(blk *ast.BlockStmt) {
 	blk.List = newBody
 }
 
-func addLineFuncs(node ast.Node) ast.Visitor {
+func process(node ast.Node) ast.Visitor {
 	if _, ok := node.(*ast.File); ok {
-		return visitFn(addLineFuncs)
+		return visitFn(process)
 	}
 	fn, ok := node.(*ast.FuncDecl)
 	if !ok {
 		return nil
 	}
-	addLineFuncsToBlock(fn.Body)
+	processBlock(fn.Body)
 	if fn.Body != nil {
 		fn.Body.List = append([]ast.Stmt{
 			newGodebugExpr("EnterFunc"),
