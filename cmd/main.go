@@ -159,6 +159,16 @@ func outOfScopeVars(idents []*ast.Ident) *ast.CallExpr {
 	return call
 }
 
+func isSetTraceCall(stmt ast.Stmt) (b bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			b = false
+		}
+	}()
+	sel := stmt.(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
+	return sel.X.(*ast.Ident).Name == "godebug" && sel.Sel.Name == "SetTrace"
+}
+
 func processBlock(blk *ast.BlockStmt) (cleanupCall *ast.CallExpr) {
 	if blk == nil {
 		return
@@ -166,7 +176,9 @@ func processBlock(blk *ast.BlockStmt) (cleanupCall *ast.CallExpr) {
 	newBody := make([]ast.Stmt, 0, 2*len(blk.List))
 	var scopedIdents []*ast.Ident
 	for _, stmt := range blk.List {
-		newBody = append(newBody, newGodebugExpr("Line"))
+		if !isSetTraceCall(stmt) {
+			newBody = append(newBody, newGodebugExpr("Line"))
+		}
 		if ifstmt, ok := stmt.(*ast.IfStmt); ok {
 			processIf(ifstmt)
 		}
