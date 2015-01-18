@@ -7,11 +7,13 @@ import (
 	"github.com/jeremyschlatter/godebug"
 )
 
+var main_goScope = godebug.EnteringNewScope()
+
 func main() {
-	defer godebug.OutOfScope("x")
+	godebugScope := main_goScope.EnteringNewChildScope()
 	godebug.Line()
 	x := mul(1, 2)
-	godebug.RecordVars(&x, "x")
+	godebugScope.Declare("x", &x)
 	godebug.SetTrace()
 	godebug.Line()
 	x = mul(x, x)
@@ -55,18 +57,17 @@ func add(n, m int) int {
 func mul(n, m int) int {
 	godebug.EnterFunc()
 	defer godebug.ExitFunc()
-	godebug.RecordVars(&n, "n", &m, "m")
-	defer godebug.OutOfScope("n", "m")
+	godebugScope := main_goScope.EnteringNewChildScope()
+	godebugScope.Declare("n", &n, "m", &m)
 	godebug.Line()
-	var r int
-	godebug.RecordVars(&r, "r")
-	defer godebug.OutOfScope("r")
+	var x int
+	godebugScope.Declare("x", &x)
 	godebug.Line()
 	for range iter.N(m) {
 		godebug.Line()
-		r += m
+		x += m
 		godebug.SLine("for range iter.N(m) {")
 	}
 	godebug.Line()
-	return r
+	return x
 }

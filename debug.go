@@ -10,27 +10,54 @@ import (
 	"strings"
 )
 
-var vars = make(map[string]interface{})
-
-// RecordVars records the mapping between variable names and their values.
-func RecordVars(varmaps ...interface{}) {
-	var i int
-	for i = 0; i+1 < len(varmaps); i += 2 {
-		s, ok := varmaps[i+1].(string)
-		if !ok {
-			panic("programming error: got even-numbered argument to RecordVars that was not a string")
-		}
-		vars[s] = varmaps[i]
-	}
-	if i != len(varmaps) {
-		panic("programming error: called RecordVars with odd number of arguments")
-	}
+// Scope represents a lexical scope for variable bindings.
+type Scope struct {
+	vars   map[string]interface{}
+	parent *Scope
 }
 
-// OutOfScope marks variables as having gone out of scope.
-func OutOfScope(names ...string) {
-	for _, n := range names {
-		delete(vars, n)
+var scopeStack []*Scope
+
+// EnteringNewScope returns a new Scope and internally sets
+// the current scope to be the returned scope.
+func EnteringNewScope() *Scope {
+	s := &Scope{vars: make(map[string]interface{})}
+	scopeStack = append(scopeStack, s)
+	return s
+}
+
+// EnteringNewChildScope returns a new Scope that is the
+// child of s and internally sets the current scope to be
+// the returned scope.
+func (s *Scope) EnteringNewChildScope() *Scope {
+	child := &Scope{
+		vars:   make(map[string]interface{}),
+		parent: s,
+	}
+	scopeStack = append(scopeStack, child)
+	return s
+}
+
+// End informs the debugger that the program is moving outside
+// the text of s, and thus the bindings in s are no longer valid.
+func (s *Scope) End() {
+	scopeStack = scopeStack[:len(scopeStack)-1]
+}
+
+// Declare creates new variable bindings in s from a list of name, value pairs.
+// The values should be pointers to the values in the program rather than copies
+// of them so that s can track changes to them.
+func (s *Scope) Declare(namevalue ...interface{}) {
+	var i int
+	for i = 0; i+1 < len(namevalue); i += 2 {
+		name, ok := namevalue[i].(string)
+		if !ok {
+			panic("programming error: got odd-numbered argument to RecordVars that was not a string")
+		}
+		s.vars[name] = namevalue[i+1]
+	}
+	if i != len(namevalue) {
+		panic("programming error: called RecordVars with odd number of arguments")
 	}
 }
 
@@ -53,11 +80,16 @@ func EnterFunc() {
 
 // ExitFunc marks the end of a function.
 func ExitFunc() {
+	if currentState == next && currentDepth == debuggerDepth {
+		debuggerDepth--
+	}
 	currentDepth--
 }
 
 // Line marks a normal line where the debugger might pause.
 func Line() {
+	fmt.Println("Line()")
+	fmt.Printf("debuggerState: %v, currentDepth: %v, debuggerDepth: %v\n", currentState, currentDepth, debuggerDepth)
 	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
 		return
 	}
@@ -107,6 +139,17 @@ func init() {
 	input = bufio.NewScanner(os.Stdin)
 }
 
+func getVar(name string) (i interface{}, ok bool) {
+	scope := scopeStack[len(scopeStack)-1]
+	for scope != nil {
+		if i, ok = scope.vars[name]; ok {
+			return i, true
+		}
+		scope = scope.parent
+	}
+	return nil, false
+}
+
 func waitForInput() {
 	for {
 		fmt.Print("(godebug) ")
@@ -124,14 +167,14 @@ func waitForInput() {
 			currentState = step
 			return
 		}
-		if v, ok := vars[strings.TrimSpace(s)]; ok {
+		if v, ok := getVar(strings.TrimSpace(s)); ok {
 			fmt.Println(dereference(v))
 			continue
 		}
 		var cmd, name string
 		n, _ := fmt.Sscan(s, &cmd, &name)
 		if n == 2 && (cmd == "p" || cmd == "print") {
-			if v, ok := vars[strings.TrimSpace(name)]; ok {
+			if v, ok := getVar(strings.TrimSpace(name)); ok {
 				fmt.Println(dereference(v))
 				continue
 			}
