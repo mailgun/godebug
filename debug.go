@@ -35,7 +35,7 @@ func (s *Scope) EnteringNewChildScope() *Scope {
 		parent: s,
 	}
 	scopeStack = append(scopeStack, child)
-	return s
+	return child
 }
 
 // End informs the debugger that the program is moving outside
