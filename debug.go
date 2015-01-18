@@ -88,8 +88,6 @@ func ExitFunc() {
 
 // Line marks a normal line where the debugger might pause.
 func Line() {
-	fmt.Println("Line()")
-	fmt.Printf("debuggerState: %v, currentDepth: %v, debuggerDepth: %v\n", currentState, currentDepth, debuggerDepth)
 	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
 		return
 	}
