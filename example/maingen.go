@@ -40,6 +40,9 @@ func main() {
 func add(n, m int) int {
 	godebug.EnterFunc()
 	defer godebug.ExitFunc()
+	godebugScope := main_goScope.EnteringNewChildScope()
+	defer godebugScope.End()
+	godebugScope.Declare("n", &n, "m", &m)
 	godebug.Line()
 	if n == 0 {
 		godebug.Line()
@@ -58,6 +61,7 @@ func mul(n, m int) int {
 	godebug.EnterFunc()
 	defer godebug.ExitFunc()
 	godebugScope := main_goScope.EnteringNewChildScope()
+	defer godebugScope.End()
 	godebugScope.Declare("n", &n, "m", &m)
 	godebug.Line()
 	var x int
@@ -65,7 +69,7 @@ func mul(n, m int) int {
 	godebug.Line()
 	for range iter.N(m) {
 		godebug.Line()
-		x += m
+		x = add(x, m)
 		godebug.SLine("for range iter.N(m) {")
 	}
 	godebug.Line()

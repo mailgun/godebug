@@ -29,9 +29,9 @@ func add(n, m int) int {
 }
 
 func mul(n, m int) int {
-	var r int
+	var x int
 	for range iter.N(m) {
-		r += m
+		x = add(x, m)
 	}
-	return r
+	return x
 }
