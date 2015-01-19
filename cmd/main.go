@@ -140,6 +140,38 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 	body.List = append(body.List, &ast.ExprStmt{X: call})
 }
 
+func ifElseCondWrap(cond ast.Expr, text string) ast.Expr {
+	return &ast.CallExpr{
+		Fun: &ast.FuncLit{
+			Type: &ast.FuncType{
+				Results: &ast.FieldList{
+					List: []*ast.Field{{
+						Type: ast.NewIdent("bool"),
+					}},
+				},
+			},
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.ExprStmt{
+						X: &ast.CallExpr{
+							Fun: newSel("godebug", "ElseIfExpr"),
+							Args: []ast.Expr{
+								&ast.BasicLit{
+									Kind:  token.STRING,
+									Value: strconv.Quote(text),
+								},
+							},
+						},
+					},
+					&ast.ReturnStmt{
+						Results: []ast.Expr{cond},
+					},
+				},
+			},
+		},
+	}
+}
+
 func ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
 	results := &ast.FieldList{List: make([]*ast.Field, len(vars))}
 	for i, expr := range vars {
@@ -196,12 +228,11 @@ func (v *visitor) finalizeNode() {
 			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
 		}
 		if ifstmt, ok := i.Else.(*ast.IfStmt); ok {
+			text := getText(i.Body.End()-1, ifstmt.Body.Pos())
 			switch d := ifstmt.Init.(type) {
 			case *ast.AssignStmt:
-				text := getText(i.Body.End()-1, ifstmt.Body.Pos())
 				d.Rhs = []ast.Expr{ifElseInitWrap(d.Lhs, d.Rhs, text)}
 			case *ast.DeclStmt:
-				text := getText(i.Body.End()-1, ifstmt.Body.Pos())
 				spec := d.Decl.(*ast.GenDecl).Specs[0].(*ast.ValueSpec)
 				exprs := make([]ast.Expr, len(spec.Names))
 				for i := range exprs {
@@ -211,6 +242,7 @@ func (v *visitor) finalizeNode() {
 			// TODO: optimize nil case
 			default:
 			}
+			ifstmt.Cond = ifElseCondWrap(ifstmt.Cond, text)
 		}
 	case *ast.RangeStmt:
 		v.finalizeLoop(i.For, i.Body)
