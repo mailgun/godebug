@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/printer"
@@ -15,6 +16,8 @@ import (
 	"golang.org/x/tools/go/types"
 )
 
+var w = flag.Bool("w", false, "write result to (source) file instead of stdout")
+
 // visitFn is a wrapper to make plain functions implement the ast.Visitor interface.
 type visitFn func(ast.Node) ast.Visitor
 
@@ -23,27 +26,39 @@ func (v visitFn) Visit(n ast.Node) ast.Visitor {
 	return v(n)
 }
 
-var defs map[*ast.Ident]types.Object
-var fs *token.FileSet
-var pkg *types.Package
+var (
+	defs map[*ast.Ident]types.Object
+	fs   *token.FileSet
+	pkg  *types.Package
+)
+
+func Usage() {
+	fmt.Fprintf(os.Stderr, "Usage of %s:\n\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "godebug <flags> <args>\n\n")
+	fmt.Fprintf(os.Stderr, "flags:\n")
+	flag.PrintDefaults()
+	fmt.Fprint(os.Stderr, loader.FromArgsUsage)
+	os.Exit(2)
+}
 
 func main() {
+	flag.Parse()
+	flag.Usage = Usage
 	var conf loader.Config
-	rest, err := conf.FromArgs(os.Args[1:], true)
+	rest, err := conf.FromArgs(flag.Args(), true)
 	if len(rest) > 0 {
-		fmt.Fprintln(os.Stderr, "Unrecognized arguments:", strings.Join(rest, "\n"))
+		fmt.Fprintf(os.Stderr, "Unrecognized arguments:\n%v\n\n", strings.Join(rest, "\n"))
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error identifying packages:", err)
+		fmt.Fprintf(os.Stderr, "Error identifying packages: %v\n\n", err)
 	}
 	if len(rest) > 0 || err != nil {
-		fmt.Fprintf(os.Stderr, "Usage: %s <args>\n", os.Args[0])
-		fmt.Fprint(os.Stderr, loader.FromArgsUsage)
-		os.Exit(2)
+		flag.Usage()
 	}
 	prog, err := conf.Load()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error loading packages:", err)
+		fmt.Fprintf(os.Stderr, "Error loading packages: %v\n\n", err)
+		flag.Usage()
 	}
 	fs = prog.Fset
 	for _, pkgInfo := range prog.InitialPackages() {
@@ -53,7 +68,17 @@ func main() {
 			ast.Walk(&visitor{context: f}, f)
 			astutil.AddImport(fs, f, "github.com/jeremyschlatter/godebug")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-			cfg.Fprint(os.Stdout, fs, f)
+			out := os.Stdout
+			if *w {
+				file, err := os.Create(fs.Position(f.Pos()).Filename)
+				if err != nil {
+					fmt.Println(err)
+					os.Exit(2)
+				}
+				defer file.Close()
+				out = file
+			}
+			cfg.Fprint(out, fs, f)
 		}
 	}
 }
