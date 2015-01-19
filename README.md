@@ -1,7 +1,7 @@
 godebug
 -------
 
-`godebug` is a code-generation-based debugger for Go. It is currently in alpha stage -- expect lots of problems.
+`godebug` is a code-generation-based debugger for Go. It is currently in alpha stage -- expect problems.
 
 ### Installation:
 
