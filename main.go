@@ -7,6 +7,7 @@ import (
 	"go/printer"
 	"go/token"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 
@@ -33,6 +34,7 @@ var (
 	pkg  *types.Package
 )
 
+// Usage is a replacement usage function for the flags package.
 func Usage() {
 	fmt.Fprintf(os.Stderr, "Usage of %s:\n\n", os.Args[0])
 	fmt.Fprintf(os.Stderr, "godebug <flags> <args>\n\n")
@@ -99,6 +101,10 @@ func newSel(selector, name string) *ast.SelectorExpr {
 		X:   ast.NewIdent(selector),
 		Sel: ast.NewIdent(name),
 	}
+}
+
+func fileScope(pos token.Pos) string {
+	return strings.Replace(path.Base(fs.Position(pos).Filename), ".", "_", -1) + "Scope"
 }
 
 func getText(start, end token.Pos) (text string) {
@@ -297,7 +303,7 @@ func (v *visitor) finalizeNode() {
 			Tok: token.VAR,
 			Specs: []ast.Spec{
 				&ast.ValueSpec{
-					Names:  []*ast.Ident{ast.NewIdent("main_goScope")},
+					Names:  []*ast.Ident{ast.NewIdent(fileScope(i.Pos()))},
 					Values: []ast.Expr{newCall("godebug", "EnteringNewScope")},
 				},
 			},
@@ -313,7 +319,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		return nil
 	case *ast.FuncDecl:
 		// Add Declare() call first thing in the function for any variables bound by the function signature.
-		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: "main_goScope"}
+		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: fileScope(i.Pos())}
 	case *ast.BlockStmt:
 		w := &visitor{context: node, stmtBuf: make([]ast.Stmt, 0, 3*len(i.List)), scopeVar: v.scopeVar}
 		if len(v.blockVars) > 0 {
