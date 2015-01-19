@@ -1,6 +1,6 @@
 package typeutil
 
-import "github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
+import "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
 
 // Dependencies returns all dependencies of the specified packages.
 //

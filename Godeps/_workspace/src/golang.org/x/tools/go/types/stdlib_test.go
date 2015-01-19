@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
-	. "github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
+	_ "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
+	. "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
 )
 
 var (

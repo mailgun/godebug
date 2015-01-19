@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
-	_ "github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
+	_ "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
 )
 
 var w = flag.Bool("w", false, "write result to (source) file instead of stdout")
@@ -66,7 +66,7 @@ func main() {
 		pkg = pkgInfo.Pkg
 		for _, f := range pkgInfo.Files {
 			ast.Walk(&visitor{context: f}, f)
-			astutil.AddImport(fs, f, "github.com/jeremyschlatter/godebug/lib")
+			astutil.AddImport(fs, f, "github.com/mailgun/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 			out := os.Stdout
 			if *w {

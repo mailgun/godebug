@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
 	"golang.org/x/tools/go/buildutil"
 )
 

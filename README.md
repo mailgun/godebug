@@ -5,7 +5,7 @@ godebug
 
 Installation:
 
-    $ go get github.com/jeremyschlatter/godebug
+    $ go get github.com/mailgun/godebug
 
 
 Use:

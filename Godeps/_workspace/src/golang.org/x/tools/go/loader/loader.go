@@ -204,9 +204,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
 )
 
 const trace = false // show timing info for type-checking

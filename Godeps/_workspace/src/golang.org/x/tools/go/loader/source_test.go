@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/ssa"
 )
 

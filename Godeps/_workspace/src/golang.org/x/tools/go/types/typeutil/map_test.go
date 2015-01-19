@@ -12,8 +12,8 @@ package typeutil_test
 import (
 	"testing"
 
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
-	"github.com/jeremyschlatter/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types/typeutil"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types/typeutil"
 )
 
 var (
