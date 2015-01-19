@@ -1,0 +1,26 @@
+{
+	"ImportPath": "github.com/jeremyschlatter/godebug/cmd",
+	"GoVersion": "go1.4",
+	"Deps": [
+		{
+			"ImportPath": "golang.org/x/tools/go/ast/astutil",
+			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
+		},
+		{
+			"ImportPath": "golang.org/x/tools/go/exact",
+			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
+		},
+		{
+			"ImportPath": "golang.org/x/tools/go/gcimporter",
+			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
+		},
+		{
+			"ImportPath": "golang.org/x/tools/go/loader",
+			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
+		},
+		{
+			"ImportPath": "golang.org/x/tools/go/types",
+			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
+		}
+	]
+}

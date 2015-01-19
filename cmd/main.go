@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/tools/go/ast/astutil"
-	_ "golang.org/x/tools/go/gcimporter"
-	"golang.org/x/tools/go/loader"
-	"golang.org/x/tools/go/types"
+	"github.com/jeremyschlatter/godebug/cmd/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
+	_ "github.com/jeremyschlatter/godebug/cmd/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
+	"github.com/jeremyschlatter/godebug/cmd/Godeps/_workspace/src/golang.org/x/tools/go/loader"
+	"github.com/jeremyschlatter/godebug/cmd/Godeps/_workspace/src/golang.org/x/tools/go/types"
 )
 
 var w = flag.Bool("w", false, "write result to (source) file instead of stdout")
