@@ -10,7 +10,7 @@ Installation:
 
 Use:
 
-First, get your directory in a clean state. *The command below will overwrite your files, so make sure you have committed or stashed everything.*
+First, get your directory in a clean state. **The command below will overwrite your files, so make sure you have committed or stashed everything.**
 
 Insert the following text anywhere in your code where you want a breakpoint: `godebug.SetTrace()` Then run:
 
