@@ -27,6 +27,7 @@ var defs = make(map[*ast.Ident]types.Object)
 var pkgName string
 var fs *token.FileSet
 var file *os.File
+var pkg *types.Package
 
 func main() {
 	if len(os.Args) != 2 {
@@ -39,7 +40,7 @@ func main() {
 		log.Fatalf("error during parsing: %v", err)
 	}
 	pkgName = parsed.Name.Name
-	_, err = (&types.Config{}).Check(parsed.Name.Name, fs, []*ast.File{parsed}, &types.Info{Defs: defs})
+	pkg, err = (&types.Config{}).Check(parsed.Name.Name, fs, []*ast.File{parsed}, &types.Info{Defs: defs})
 	if err != nil {
 		log.Fatalf("error during type checking: %v", err)
 	}
@@ -61,11 +62,13 @@ func newCallStmt(selector, fnName string) *ast.ExprStmt {
 }
 
 func newCall(selector, fnName string) *ast.CallExpr {
-	return &ast.CallExpr{
-		Fun: &ast.SelectorExpr{
-			X:   ast.NewIdent(selector),
-			Sel: ast.NewIdent(fnName),
-		},
+	return &ast.CallExpr{Fun: newSel(selector, fnName)}
+}
+
+func newSel(selector, name string) *ast.SelectorExpr {
+	return &ast.SelectorExpr{
+		X:   ast.NewIdent(selector),
+		Sel: ast.NewIdent(name),
 	}
 }
 
@@ -137,6 +140,40 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 	body.List = append(body.List, &ast.ExprStmt{X: call})
 }
 
+func ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
+	results := &ast.FieldList{List: make([]*ast.Field, len(vars))}
+	for i, expr := range vars {
+		ident, ok := expr.(*ast.Ident)
+		if !ok {
+			panic(fmt.Sprintf("Unsupported type in if statement initializer: %T. Sorry! Let me (jeremy@mailgunhq.com) know about this and I'll fix it.", expr))
+		}
+		results.List[i] = &ast.Field{Type: ast.NewIdent(types.TypeString(pkg, defs[ident].Type()))}
+	}
+	return &ast.CallExpr{Fun: &ast.FuncLit{
+		Type: &ast.FuncType{
+			Results: results,
+		},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				&ast.ExprStmt{
+					X: &ast.CallExpr{
+						Fun: newSel("godebug", "ElseIfSimpleStmt"),
+						Args: []ast.Expr{
+							&ast.BasicLit{
+								Kind:  token.STRING,
+								Value: strconv.Quote(text),
+							},
+						},
+					},
+				},
+				&ast.ReturnStmt{
+					Results: vals,
+				},
+			},
+		},
+	}}
+}
+
 func (v *visitor) finalizeNode() {
 	switch i := v.context.(type) {
 	case *ast.FuncDecl:
@@ -157,6 +194,23 @@ func (v *visitor) finalizeNode() {
 			elseCall := newCall("godebug", "SLine")
 			elseCall.Args = append(elseCall.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
 			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
+		}
+		if ifstmt, ok := i.Else.(*ast.IfStmt); ok {
+			switch d := ifstmt.Init.(type) {
+			case *ast.AssignStmt:
+				text := getText(i.Body.End()-1, ifstmt.Body.Pos())
+				d.Rhs = []ast.Expr{ifElseInitWrap(d.Lhs, d.Rhs, text)}
+			case *ast.DeclStmt:
+				text := getText(i.Body.End()-1, ifstmt.Body.Pos())
+				spec := d.Decl.(*ast.GenDecl).Specs[0].(*ast.ValueSpec)
+				exprs := make([]ast.Expr, len(spec.Names))
+				for i := range exprs {
+					exprs[i] = ast.Expr(spec.Names[i])
+				}
+				spec.Values = []ast.Expr{ifElseInitWrap(exprs, spec.Values, text)}
+			// TODO: optimize nil case
+			default:
+			}
 		}
 	case *ast.RangeStmt:
 		v.finalizeLoop(i.For, i.Body)
