@@ -385,6 +385,9 @@ func newDeclareCall(scopeVar string, idents []*ast.Ident) ast.Stmt {
 
 func (v *visitor) createScope() {
 	name := "godebugScope"
+	if v.scopeVar == "" {
+		v.scopeVar = name
+	}
 	v.stmtBuf = append(v.stmtBuf, &ast.AssignStmt{
 		Lhs: []ast.Expr{ast.NewIdent(name)},
 		Tok: token.DEFINE,
