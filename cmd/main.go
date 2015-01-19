@@ -48,22 +48,22 @@ func main() {
 		log.Fatal("error opening file:", err)
 	}
 	defer file.Close()
-	ast.Walk(visitFn(process), parsed)
+	ast.Walk(&visitor{context: parsed}, parsed)
 	astutil.AddImport(fs, parsed, "github.com/jeremyschlatter/godebug")
 	cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 	cfg.Fprint(os.Stdout, fs, parsed)
 }
 
-func newGodebugExpr(fnName string) *ast.ExprStmt {
+func newCallStmt(selector, fnName string) *ast.ExprStmt {
 	return &ast.ExprStmt{
-		X: newGodebugCall(fnName),
+		X: newCall(selector, fnName),
 	}
 }
 
-func newGodebugCall(fnName string) *ast.CallExpr {
+func newCall(selector, fnName string) *ast.CallExpr {
 	return &ast.CallExpr{
 		Fun: &ast.SelectorExpr{
-			X:   ast.NewIdent("godebug"),
+			X:   ast.NewIdent(selector),
 			Sel: ast.NewIdent(fnName),
 		},
 	}
@@ -78,49 +78,6 @@ func getText(start, end token.Pos) (text string) {
 		text += "<< Error reading source >>"
 	}
 	return
-}
-
-func processIf(ifstmt *ast.IfStmt) {
-	processBlock(ifstmt.Body)
-	switch i := ifstmt.Else.(type) {
-	case *ast.IfStmt:
-		processIf(i)
-	case *ast.BlockStmt:
-		elseText := getText(ifstmt.Body.End(), i.Lbrace)
-		elseCall := newGodebugCall("SLine")
-		elseCall.Args = append(elseCall.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
-		i.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, i.List...)
-		processBlock(i)
-	}
-}
-
-func processFor(forstmt *ast.ForStmt) {
-	cleanup := processBlock(forstmt.Body)
-	if cleanup != nil {
-		forstmt.Body.List = append(forstmt.Body.List, &ast.ExprStmt{
-			X: cleanup,
-		})
-	}
-}
-
-func processRange(rangestmt *ast.RangeStmt) {
-	cleanup := processBlock(rangestmt.Body)
-	if cleanup != nil {
-		rangestmt.Body.List = append(rangestmt.Body.List, &ast.ExprStmt{
-			X: cleanup,
-		})
-	}
-}
-
-func listNewIdents(stmt ast.Stmt) []*ast.Ident {
-	switch i := stmt.(type) {
-	case *ast.DeclStmt:
-		return listNewIdentsFromDecl(i.Decl.(*ast.GenDecl))
-	case *ast.AssignStmt:
-		return listNewIdentsFromAssign(i)
-	default:
-		return nil
-	}
 }
 
 func isNewIdent(ident *ast.Ident) bool {
@@ -152,103 +109,154 @@ func listNewIdentsFromAssign(assign *ast.AssignStmt) (idents []*ast.Ident) {
 	return
 }
 
-func recordVars(idents []*ast.Ident) ast.Stmt {
-	expr := newGodebugExpr("RecordVars")
-	call := expr.X.(*ast.CallExpr)
-	call.Args = make([]ast.Expr, 2*len(idents))
-	for i, ident := range idents {
-		call.Args[2*i] = &ast.UnaryExpr{
-			Op: token.AND,
-			X:  ident,
-		}
-		call.Args[2*i+1] = &ast.BasicLit{
-			Kind:  token.STRING,
-			Value: strconv.Quote(ident.Name),
-		}
-	}
-	return expr
-}
-
-func outOfScopeVars(idents []*ast.Ident) *ast.CallExpr {
-	call := newGodebugCall("OutOfScope")
-	call.Args = make([]ast.Expr, len(idents))
-	for i, ident := range idents {
-		call.Args[i] = &ast.BasicLit{
-			Kind:  token.STRING,
-			Value: strconv.Quote(ident.Name),
-		}
-	}
-	return call
-}
-
-func isSetTraceCall(stmt ast.Stmt) (b bool) {
+func isSetTraceCall(node ast.Node) (b bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			b = false
 		}
 	}()
-	sel := stmt.(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
+	sel := node.(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
 	return sel.X.(*ast.Ident).Name == "godebug" && sel.Sel.Name == "SetTrace"
 }
 
-func processBlock(blk *ast.BlockStmt) (cleanupCall *ast.CallExpr) {
-	if blk == nil {
-		return
-	}
-	newBody := make([]ast.Stmt, 0, 2*len(blk.List))
-	var scopedIdents []*ast.Ident
-	for _, stmt := range blk.List {
-		if !isSetTraceCall(stmt) {
-			newBody = append(newBody, newGodebugExpr("Line"))
-		}
-		if ifstmt, ok := stmt.(*ast.IfStmt); ok {
-			processIf(ifstmt)
-		}
-		if forstmt, ok := stmt.(*ast.ForStmt); ok {
-			processFor(forstmt)
-		}
-		if forstmt, ok := stmt.(*ast.RangeStmt); ok {
-			processRange(forstmt)
-		}
-		newBody = append(newBody, stmt)
-		newIdents := listNewIdents(stmt)
-		if len(newIdents) > 0 {
-			newBody = append(newBody, recordVars(newIdents))
-			scopedIdents = append(scopedIdents, newIdents...)
-		}
-	}
-	blk.List = newBody
-	if len(scopedIdents) > 0 {
-		cleanupCall = outOfScopeVars(scopedIdents)
-	}
-	return cleanupCall
+type visitor struct {
+	context              ast.Node
+	stmtBuf              []ast.Stmt
+	scopeVar             string
+	blockVars            []*ast.Ident
+	createdExplicitScope bool
 }
 
-func process(node ast.Node) ast.Visitor {
-	if _, ok := node.(*ast.File); ok {
-		return visitFn(process)
-	}
-	fn, ok := node.(*ast.FuncDecl)
-	if !ok {
-		return nil
-	}
-	cleanupCall := processBlock(fn.Body)
-	var prepend []ast.Stmt
-	if !(pkgName == "main" && fn.Name.Name == "main") {
-		prepend = []ast.Stmt{
-			newGodebugExpr("EnterFunc"),
+func (v *visitor) finalizeNode() {
+	switch i := v.context.(type) {
+	case *ast.FuncDecl:
+		if i.Body == nil || (pkgName == "main" && i.Name.Name == "main") {
+			break
+		}
+		i.Body.List = append([]ast.Stmt{
+			newCallStmt("godebug", "EnterFunc"),
 			&ast.DeferStmt{
-				Call: newGodebugCall("ExitFunc"),
+				Call: newCall("godebug", "ExitFunc"),
 			},
+		}, i.Body.List...)
+	case *ast.BlockStmt:
+		i.List = v.stmtBuf
+	case *ast.IfStmt:
+		if blk, ok := i.Else.(*ast.BlockStmt); ok {
+			elseText := getText(i.Body.End(), blk.Lbrace)
+			elseCall := newCall("godebug", "SLine")
+			elseCall.Args = append(elseCall.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
+			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
+		}
+	case *ast.File:
+		// Insert declaration of file-level godebug.Scope variable as first declaration in file.
+		var newDecls []ast.Decl
+		// But put it after any import declarations.
+		for len(i.Decls) > 0 {
+			if gd, ok := i.Decls[0].(*ast.GenDecl); !ok || gd.Tok != token.IMPORT {
+				break
+			}
+			newDecls = append(newDecls, i.Decls[0])
+			i.Decls = i.Decls[1:]
+		}
+		newDecls = append(newDecls, &ast.GenDecl{
+			Tok: token.VAR,
+			Specs: []ast.Spec{
+				&ast.ValueSpec{
+					Names:  []*ast.Ident{ast.NewIdent("main_goScope")},
+					Values: []ast.Expr{newCall("godebug", "EnteringNewScope")},
+				},
+			},
+		})
+		i.Decls = append(newDecls, i.Decls...)
+	}
+}
+
+func (v *visitor) Visit(node ast.Node) ast.Visitor {
+	switch i := node.(type) {
+	case nil:
+		v.finalizeNode()
+		return nil
+	case *ast.FuncDecl:
+		// Add Declare() call first thing in the function for any variables bound by the function signature.
+		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: "main_goScope"}
+	case *ast.BlockStmt:
+		w := &visitor{context: node, stmtBuf: make([]ast.Stmt, 0, 3*len(i.List)), scopeVar: v.scopeVar}
+		if len(v.blockVars) > 0 {
+			w.createScope()
+			w.stmtBuf = append(w.stmtBuf, newDeclareCall(w.scopeVar, v.blockVars))
+		}
+		return w
+	}
+	if v.stmtBuf == nil {
+		return &visitor{context: node, scopeVar: v.scopeVar}
+	}
+	if !isSetTraceCall(node) {
+		v.stmtBuf = append(v.stmtBuf, newCallStmt("godebug", "Line"))
+	}
+	var newIdents []*ast.Ident
+	switch i := node.(type) {
+	case *ast.DeclStmt:
+		newIdents = listNewIdentsFromDecl(i.Decl.(*ast.GenDecl))
+	case *ast.AssignStmt:
+		newIdents = listNewIdentsFromAssign(i)
+	}
+	if stmt, ok := node.(ast.Stmt); ok {
+		v.stmtBuf = append(v.stmtBuf, stmt)
+	}
+	if len(newIdents) > 0 {
+		if !v.createdExplicitScope {
+			v.createScope()
+		}
+		v.stmtBuf = append(v.stmtBuf, newDeclareCall("", newIdents))
+	}
+	return &visitor{context: node}
+}
+
+func getIdents(lists ...*ast.FieldList) (idents []*ast.Ident) {
+	for _, l := range lists {
+		if l == nil {
+			continue
+		}
+		for _, fields := range l.List {
+			for _, ident := range fields.Names {
+				if ident.Name != "_" {
+					idents = append(idents, ident)
+				}
+			}
 		}
 	}
-	if cleanupCall != nil {
-		prepend = append(prepend, &ast.DeferStmt{
-			Call: cleanupCall,
-		})
+	return
+}
+
+func newDeclareCall(scopeVar string, idents []*ast.Ident) ast.Stmt {
+	if scopeVar == "" {
+		scopeVar = "godebugScope"
 	}
-	if fn.Body != nil {
-		fn.Body.List = append(prepend, fn.Body.List...)
+	expr := newCallStmt(scopeVar, "Declare")
+	call := expr.X.(*ast.CallExpr)
+	call.Args = make([]ast.Expr, 2*len(idents))
+	for i, ident := range idents {
+		call.Args[2*i] = &ast.BasicLit{
+			Kind:  token.STRING,
+			Value: strconv.Quote(ident.Name),
+		}
+		call.Args[2*i+1] = &ast.UnaryExpr{
+			Op: token.AND,
+			X:  ident,
+		}
 	}
-	return nil
+	return expr
+}
+
+func (v *visitor) createScope() {
+	name := "godebugScope"
+	v.stmtBuf = append(v.stmtBuf, &ast.AssignStmt{
+		Lhs: []ast.Expr{ast.NewIdent(name)},
+		Tok: token.DEFINE,
+		Rhs: []ast.Expr{newCall(v.scopeVar, "EnteringNewChildScope")},
+	})
+	v.stmtBuf = append(v.stmtBuf, &ast.DeferStmt{Call: newCall(name, "End")})
+	v.scopeVar = name
+	v.createdExplicitScope = true
 }
