@@ -13,7 +13,7 @@ func main() {
 	if x == 4 {
 		fmt.Println("It works! x == 4.")
 	} else if n := 2; n == 3 {
-		fmt.Println("Math is broken. Run.")
+		fmt.Println("Math is broken. Ah!")
 	} else {
 		fmt.Println("What's going on? x ==", x)
 	}
