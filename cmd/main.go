@@ -25,7 +25,6 @@ func (v visitFn) Visit(n ast.Node) ast.Visitor {
 }
 
 var defs map[*ast.Ident]types.Object
-var pkgName string
 var fs *token.FileSet
 var file *os.File
 var pkg *types.Package
@@ -51,7 +50,6 @@ func main() {
 	fs = prog.Fset
 	pkgInfo := prog.Created[0]
 	defs = pkgInfo.Defs
-	pkgName = pkgInfo.Pkg.Name()
 	pkg = pkgInfo.Pkg
 	file, err = os.Open(os.Args[1])
 	if err != nil {
@@ -220,7 +218,7 @@ func ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
 func (v *visitor) finalizeNode() {
 	switch i := v.context.(type) {
 	case *ast.FuncDecl:
-		if i.Body == nil || (pkgName == "main" && i.Name.Name == "main") {
+		if i.Body == nil || (pkg.Name() == "main" && i.Name.Name == "main") {
 			break
 		}
 		i.Body.List = append([]ast.Stmt{
