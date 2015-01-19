@@ -58,6 +58,7 @@ func main() {
 	if len(rest) > 0 || err != nil {
 		flag.Usage()
 	}
+	conf.SourceImports = true
 	prog, err := conf.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading packages: %v\n\n", err)
