@@ -20,14 +20,6 @@ import (
 
 var w = flag.Bool("w", false, "write result to (source) file instead of stdout")
 
-// visitFn is a wrapper to make plain functions implement the ast.Visitor interface.
-type visitFn func(ast.Node) ast.Visitor
-
-// Visit is part of the ast.Visitor interface.
-func (v visitFn) Visit(n ast.Node) ast.Visitor {
-	return v(n)
-}
-
 var (
 	defs map[*ast.Ident]types.Object
 	fs   *token.FileSet
