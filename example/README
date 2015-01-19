@@ -1,4 +1,4 @@
-This directory contains a little program you can try debugging. As of this commit, it is the only program that has ever been debugged with godebug, so expect some problems if you use it anywhere else :)
+This directory contains a little program you can try debugging.
 
 To debug:
 
