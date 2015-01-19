@@ -46,14 +46,15 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Error loading packages:", err)
 	}
 	fs = prog.Fset
-	pkgInfo := prog.Created[0]
-	defs = pkgInfo.Defs
-	pkg = pkgInfo.Pkg
-	for _, f := range pkgInfo.Files {
-		ast.Walk(&visitor{context: f}, f)
-		astutil.AddImport(fs, f, "github.com/jeremyschlatter/godebug")
-		cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-		cfg.Fprint(os.Stdout, fs, f)
+	for _, pkgInfo := range prog.InitialPackages() {
+		defs = pkgInfo.Defs
+		pkg = pkgInfo.Pkg
+		for _, f := range pkgInfo.Files {
+			ast.Walk(&visitor{context: f}, f)
+			astutil.AddImport(fs, f, "github.com/jeremyschlatter/godebug")
+			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
+			cfg.Fprint(os.Stdout, fs, f)
+		}
 	}
 }
 
