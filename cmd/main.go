@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/printer"
 	"go/token"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -26,7 +25,6 @@ func (v visitFn) Visit(n ast.Node) ast.Visitor {
 
 var defs map[*ast.Ident]types.Object
 var fs *token.FileSet
-var file *os.File
 var pkg *types.Package
 
 func main() {
@@ -51,11 +49,6 @@ func main() {
 	pkgInfo := prog.Created[0]
 	defs = pkgInfo.Defs
 	pkg = pkgInfo.Pkg
-	file, err = os.Open(os.Args[1])
-	if err != nil {
-		log.Fatal("error opening file:", err)
-	}
-	defer file.Close()
 	for _, f := range pkgInfo.Files {
 		ast.Walk(&visitor{context: f}, f)
 		astutil.AddImport(fs, f, "github.com/jeremyschlatter/godebug")
@@ -82,9 +75,14 @@ func newSel(selector, name string) *ast.SelectorExpr {
 }
 
 func getText(start, end token.Pos) (text string) {
+	f, err := os.Open(fs.Position(start).Filename)
+	if err != nil {
+		return "<< Error reading source >>"
+	}
+	defer f.Close()
 	startOffset, endOffset := fs.Position(start).Offset, fs.Position(end).Offset
 	buf := make([]byte, 1+endOffset-startOffset)
-	n, err := file.ReadAt(buf, int64(startOffset))
+	n, err := f.ReadAt(buf, int64(startOffset))
 	text = string(buf[:n])
 	if err != nil {
 		text += "<< Error reading source >>"
