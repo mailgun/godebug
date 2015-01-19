@@ -3,15 +3,16 @@ package main
 import (
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/printer"
 	"go/token"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"golang.org/x/tools/go/ast/astutil"
 	_ "golang.org/x/tools/go/gcimporter"
+	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/types"
 )
 
@@ -23,36 +24,46 @@ func (v visitFn) Visit(n ast.Node) ast.Visitor {
 	return v(n)
 }
 
-var defs = make(map[*ast.Ident]types.Object)
+var defs map[*ast.Ident]types.Object
 var pkgName string
 var fs *token.FileSet
 var file *os.File
 var pkg *types.Package
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Println("Must pass a single *.go file.")
-		os.Exit(1)
+	var conf loader.Config
+	rest, err := conf.FromArgs(os.Args[1:], true)
+	if len(rest) > 0 {
+		fmt.Fprintln(os.Stderr, "Unrecognized arguments:", strings.Join(rest, "\n"))
 	}
-	fs = token.NewFileSet()
-	parsed, err := parser.ParseFile(fs, os.Args[1], nil, 0)
 	if err != nil {
-		log.Fatalf("error during parsing: %v", err)
+		fmt.Fprintln(os.Stderr, "Error identifying packages:", err)
 	}
-	pkgName = parsed.Name.Name
-	pkg, err = (&types.Config{}).Check(parsed.Name.Name, fs, []*ast.File{parsed}, &types.Info{Defs: defs})
+	if len(rest) > 0 || err != nil {
+		fmt.Fprintf(os.Stderr, "Usage: %s <args>\n", os.Args[0])
+		fmt.Fprint(os.Stderr, loader.FromArgsUsage)
+		os.Exit(2)
+	}
+	prog, err := conf.Load()
 	if err != nil {
-		log.Fatalf("error during type checking: %v", err)
+		fmt.Fprintln(os.Stderr, "Error loading packages:", err)
 	}
+	fs = prog.Fset
+	pkgInfo := prog.Created[0]
+	defs = pkgInfo.Defs
+	pkgName = pkgInfo.Pkg.Name()
+	pkg = pkgInfo.Pkg
 	file, err = os.Open(os.Args[1])
 	if err != nil {
 		log.Fatal("error opening file:", err)
 	}
 	defer file.Close()
-	ast.Walk(&visitor{context: parsed}, parsed)
-	astutil.AddImport(fs, parsed, "github.com/jeremyschlatter/godebug")
-	cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-	cfg.Fprint(os.Stdout, fs, parsed)
+	for _, f := range pkgInfo.Files {
+		ast.Walk(&visitor{context: f}, f)
+		astutil.AddImport(fs, f, "github.com/jeremyschlatter/godebug")
+		cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
+		cfg.Fprint(os.Stdout, fs, f)
+	}
 }
 
 func newCallStmt(selector, fnName string) *ast.ExprStmt {
