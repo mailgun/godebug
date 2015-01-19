@@ -71,8 +71,8 @@ func newCall(selector, fnName string) *ast.CallExpr {
 
 func getText(start, end token.Pos) (text string) {
 	startOffset, endOffset := fs.Position(start).Offset, fs.Position(end).Offset
-	buf := make([]byte, 2+endOffset-startOffset)
-	n, err := file.ReadAt(buf, int64(startOffset-1))
+	buf := make([]byte, 1+endOffset-startOffset)
+	n, err := file.ReadAt(buf, int64(startOffset))
 	text = string(buf[:n])
 	if err != nil {
 		text += "<< Error reading source >>"
@@ -143,11 +143,19 @@ func (v *visitor) finalizeNode() {
 		i.List = v.stmtBuf
 	case *ast.IfStmt:
 		if blk, ok := i.Else.(*ast.BlockStmt); ok {
-			elseText := getText(i.Body.End(), blk.Lbrace)
+			elseText := getText(i.Body.End()-1, blk.Lbrace)
 			elseCall := newCall("godebug", "SLine")
 			elseCall.Args = append(elseCall.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
 			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
 		}
+	case *ast.RangeStmt:
+		if i.Body == nil {
+			break
+		}
+		text := getText(i.For, i.Body.Lbrace)
+		call := newCall("godebug", "SLine")
+		call.Args = append(call.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
+		i.Body.List = append(i.Body.List, &ast.ExprStmt{X: call})
 	case *ast.File:
 		// Insert declaration of file-level godebug.Scope variable as first declaration in file.
 		var newDecls []ast.Decl
