@@ -321,6 +321,9 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			w.stmtBuf = append(w.stmtBuf, newDeclareCall(w.scopeVar, v.blockVars))
 		}
 		return w
+	// TODO: Wrap case clauses the same way as if-else clauses.
+	case *ast.CaseClause:
+		return &visitor{context: node, scopeVar: v.scopeVar}
 	}
 	if v.stmtBuf == nil {
 		return &visitor{context: node, scopeVar: v.scopeVar}
@@ -344,7 +347,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		}
 		v.stmtBuf = append(v.stmtBuf, newDeclareCall("", newIdents))
 	}
-	return &visitor{context: node}
+	return &visitor{context: node, scopeVar: v.scopeVar}
 }
 
 func getIdents(lists ...*ast.FieldList) (idents []*ast.Ident) {
