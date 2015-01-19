@@ -46,7 +46,7 @@ func main() {
 	flag.Parse()
 	flag.Usage = Usage
 	var conf loader.Config
-	rest, err := conf.FromArgs(flag.Args(), true)
+	rest, err := conf.FromArgs(flag.Args(), false)
 	if len(rest) > 0 {
 		fmt.Fprintf(os.Stderr, "Unrecognized arguments:\n%v\n\n", strings.Join(rest, "\n"))
 	}
