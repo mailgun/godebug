@@ -14,6 +14,7 @@ import (
 	_ "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
+	_ "github.com/mailgun/godebug/lib" // so the library is also installed whenever this package is
 )
 
 var w = flag.Bool("w", false, "write result to (source) file instead of stdout")
