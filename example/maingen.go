@@ -10,9 +10,10 @@ import (
 var main_goScope = godebug.EnteringNewScope()
 
 func main() {
-	godebugScope := main_goScope.EnteringNewChildScope()
 	godebug.Line()
 	x := mul(1, 2)
+	godebugScope := main_goScope.EnteringNewChildScope()
+	defer godebugScope.End()
 	godebugScope.Declare("x", &x)
 	godebug.SetTrace()
 	godebug.Line()
