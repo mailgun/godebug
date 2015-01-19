@@ -824,8 +824,11 @@ func (conf *Config) build() *build.Context {
 // using go/build logic.  It returns an error if not found.
 //
 func (conf *Config) findSourcePackage(path string) (*build.Package, error) {
-	// Import(srcDir="") disables local imports, e.g. import "./foo".
-	bp, err := conf.build().Import(path, "", 0)
+	srcDir, err := os.Getwd()
+	if err != nil {
+		srcDir = ""
+	}
+	bp, err := conf.build().Import(path, srcDir, 0)
 	if _, ok := err.(*build.NoGoError); ok {
 		return bp, nil // empty directory is not an error
 	}
