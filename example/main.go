@@ -4,10 +4,12 @@ import (
 	"fmt"
 
 	"github.com/bradfitz/iter"
+	"github.com/jeremyschlatter/godebug"
 )
 
 func main() {
 	x := mul(1, 2)
+	godebug.SetTrace()
 	x = mul(x, x)
 	if x == 4 {
 		fmt.Println("It works! x == 4.")
