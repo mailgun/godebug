@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bradfitz/iter"
-	"github.com/jeremyschlatter/godebug"
+	"github.com/jeremyschlatter/godebug/lib"
 )
 
 func main() {

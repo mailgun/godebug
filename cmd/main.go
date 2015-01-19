@@ -66,7 +66,7 @@ func main() {
 		pkg = pkgInfo.Pkg
 		for _, f := range pkgInfo.Files {
 			ast.Walk(&visitor{context: f}, f)
-			astutil.AddImport(fs, f, "github.com/jeremyschlatter/godebug")
+			astutil.AddImport(fs, f, "github.com/jeremyschlatter/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 			out := os.Stdout
 			if *w {
