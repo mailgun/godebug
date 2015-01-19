@@ -12,7 +12,7 @@ godebug
 
 First, get your directory in a clean state. **The command below will overwrite your files, so make sure you have committed or stashed everything.**
 
-Insert the following text anywhere in your code where you want a breakpoint: `godebug.SetTrace()` Then run:
+In any file where you want a breakpoint, import `github.com/mailgun/godebug/lib` and insert this breakpoint anywhere in the code: `godebug.SetTrace()`. Then run:
 
     $ godebug -w .
 
