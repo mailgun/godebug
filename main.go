@@ -330,6 +330,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		return w
 	// TODO: Wrap case clauses the same way as if-else clauses.
 	case *ast.CaseClause:
+		v.stmtBuf = append(v.stmtBuf, i)
 		return &visitor{context: node, scopeVar: v.scopeVar}
 	}
 	if v.stmtBuf == nil {
