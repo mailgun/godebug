@@ -127,6 +127,16 @@ type visitor struct {
 	createdExplicitScope bool
 }
 
+func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
+	if body == nil {
+		return
+	}
+	text := getText(pos, body.Lbrace)
+	call := newCall("godebug", "SLine")
+	call.Args = append(call.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
+	body.List = append(body.List, &ast.ExprStmt{X: call})
+}
+
 func (v *visitor) finalizeNode() {
 	switch i := v.context.(type) {
 	case *ast.FuncDecl:
@@ -149,13 +159,9 @@ func (v *visitor) finalizeNode() {
 			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
 		}
 	case *ast.RangeStmt:
-		if i.Body == nil {
-			break
-		}
-		text := getText(i.For, i.Body.Lbrace)
-		call := newCall("godebug", "SLine")
-		call.Args = append(call.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
-		i.Body.List = append(i.Body.List, &ast.ExprStmt{X: call})
+		v.finalizeLoop(i.For, i.Body)
+	case *ast.ForStmt:
+		v.finalizeLoop(i.For, i.Body)
 	case *ast.File:
 		// Insert declaration of file-level godebug.Scope variable as first declaration in file.
 		var newDecls []ast.Decl
