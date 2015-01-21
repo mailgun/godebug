@@ -40,7 +40,7 @@ func main() {
 	flag.Parse()
 	flag.Usage = Usage
 	var conf loader.Config
-	rest, err := conf.FromArgs(flag.Args(), false)
+	rest, err := conf.FromArgs(flag.Args(), true)
 	if len(rest) > 0 {
 		fmt.Fprintf(os.Stderr, "Unrecognized arguments:\n%v\n\n", strings.Join(rest, "\n"))
 	}
@@ -320,9 +320,9 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			w.stmtBuf = append(w.stmtBuf, newDeclareCall(w.scopeVar, v.blockVars))
 		}
 		return w
-	// TODO: Wrap case clauses the same way as if-else clauses.
-	case *ast.CaseClause:
-		v.stmtBuf = append(v.stmtBuf, i)
+	// TODO: Wrap these clauses the same way as if-else clauses.
+	case *ast.CommClause, *ast.CaseClause:
+		v.stmtBuf = append(v.stmtBuf, i.(ast.Stmt))
 		return &visitor{context: node, scopeVar: v.scopeVar}
 	}
 	if v.stmtBuf == nil {
