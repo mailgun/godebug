@@ -10,6 +10,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
 	_ "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
@@ -97,7 +98,12 @@ func newSel(selector, name string) *ast.SelectorExpr {
 }
 
 func fileScope(pos token.Pos) string {
-	return strings.Replace(path.Base(fs.Position(pos).Filename), ".", "_", -1) + "Scope"
+	return strings.Map(func(r rune) rune {
+		if !unicode.In(r, unicode.Digit, unicode.Letter) {
+			return '_'
+		}
+		return r
+	}, path.Base(fs.Position(pos).Filename)) + "Scope"
 }
 
 func getText(start, end token.Pos) (text string) {
