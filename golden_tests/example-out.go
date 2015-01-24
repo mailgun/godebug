@@ -38,7 +38,13 @@ func main() {
 }
 
 func add(n, m int) int {
-	godebug.EnterFunc()
+	var godebugResult1 int
+	if !godebug.EnterFunc(func() {
+		godebugResult1 = add(n, m)
+	}) {
+		return godebugResult1
+	}
+
 	defer godebug.ExitFunc()
 	godebugScope := example_in_goScope.EnteringNewChildScope()
 	defer godebugScope.End()
@@ -58,7 +64,13 @@ func add(n, m int) int {
 }
 
 func mul(n, m int) int {
-	godebug.EnterFunc()
+	var godebugResult1 int
+	if !godebug.EnterFunc(func() {
+		godebugResult1 = mul(n, m)
+	}) {
+		return godebugResult1
+	}
+
 	defer godebug.ExitFunc()
 	godebugScope := example_in_goScope.EnteringNewChildScope()
 	defer godebugScope.End()

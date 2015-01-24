@@ -1,6 +1,6 @@
 package main
 
-// Partly modeled after golang.org/x/tools/cmd/stringer/endtoendtest.go
+// Modeled after golang.org/x/tools/cmd/stringer/endtoendtest.go
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -23,8 +24,24 @@ func TestGoldenFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed to build godebug:", err)
 	}
-	tests := []string{"example"}
-	for _, test := range tests {
+	// Read the golden_tests directory
+	fd, err := os.Open("golden_tests")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fd.Close()
+	names, err := fd.Readdirnames(-1)
+	if err != nil {
+		t.Fatal("Readdirnames:", err)
+	}
+	tests := make(map[string]bool)
+	for _, name := range names {
+		if !strings.HasSuffix(name, "-out.go") && !strings.HasSuffix(name, "-in.go") {
+			t.Fatal("Unexpected file in golden_tests directory:", name)
+		}
+		tests[name[:strings.LastIndex(name, "-")]] = true
+	}
+	for test := range tests {
 		compareGolden(t, godebug, test)
 		runGolden(t, test)
 	}
