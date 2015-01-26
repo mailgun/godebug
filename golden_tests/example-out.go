@@ -44,7 +44,6 @@ func add(n, m int) int {
 	}) {
 		return godebugResult1
 	}
-
 	defer godebug.ExitFunc()
 	godebugScope := example_in_goScope.EnteringNewChildScope()
 	defer godebugScope.End()
@@ -70,7 +69,6 @@ func mul(n, m int) int {
 	}) {
 		return godebugResult1
 	}
-
 	defer godebug.ExitFunc()
 	godebugScope := example_in_goScope.EnteringNewChildScope()
 	defer godebugScope.End()

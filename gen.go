@@ -86,8 +86,8 @@ func newCallStmt(selector, fnName string) *ast.ExprStmt {
 	}
 }
 
-func newCall(selector, fnName string) *ast.CallExpr {
-	return &ast.CallExpr{Fun: newSel(selector, fnName)}
+func newCall(selector, fnName string, args ...ast.Expr) *ast.CallExpr {
+	return &ast.CallExpr{Fun: newSel(selector, fnName), Args: args}
 }
 
 func newSel(selector, name string) *ast.SelectorExpr {
@@ -245,18 +245,78 @@ func ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
 	}}
 }
 
+var blank = ast.NewIdent("_")
+
+func inputsOrOutputs(fieldList *ast.FieldList, prefix string) (decl []ast.Stmt, all []ast.Expr) {
+	count := 1
+	var specs []ast.Spec
+	for _, field := range fieldList.List {
+		names := field.Names
+		if names == nil {
+			names = []*ast.Ident{blank}
+		}
+		spec := &ast.ValueSpec{Type: field.Type}
+		for _, name := range names {
+			if name.Name == "_" {
+				name = ast.NewIdent(prefix + strconv.Itoa(count))
+				spec.Names = append(spec.Names, name)
+				count++
+			}
+			all = append(all, name)
+		}
+		if len(spec.Names) > 0 {
+			specs = append(specs, spec)
+		}
+	}
+	if len(specs) > 0 {
+		decl = []ast.Stmt{&ast.DeclStmt{Decl: &ast.GenDecl{Tok: token.VAR, Specs: specs}}}
+	}
+	return decl, all
+}
+
+func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
+	// Generates this structure:
+	//   if !godebug.EnterFunc(func() {
+	//       <outputs> = <fn.Name>(inputs)
+	//   }) {
+	//       return <outputs>
+	//   }
+	return []ast.Stmt{
+		&ast.IfStmt{
+			Cond: &ast.UnaryExpr{
+				Op: token.NOT,
+				X: newCall("godebug", "EnterFunc", &ast.FuncLit{
+					Type: &ast.FuncType{Params: &ast.FieldList{}},
+					Body: &ast.BlockStmt{
+						List: []ast.Stmt{
+							&ast.AssignStmt{
+								Lhs: outputs,
+								Tok: token.ASSIGN,
+								Rhs: []ast.Expr{&ast.CallExpr{
+									Fun:  fn.Name,
+									Args: inputs,
+								}}}}}})},
+			Body: &ast.BlockStmt{
+				List: []ast.Stmt{
+					&ast.ReturnStmt{
+						Results: outputs}}}}}
+}
+
 func (v *visitor) finalizeNode() {
 	switch i := v.context.(type) {
 	case *ast.FuncDecl:
 		if i.Body == nil || (pkg.Name() == "main" && i.Name.Name == "main") {
 			break
 		}
-		i.Body.List = append([]ast.Stmt{
-			newCallStmt("godebug", "EnterFunc"),
-			&ast.DeferStmt{
-				Call: newCall("godebug", "ExitFunc"),
-			},
-		}, i.Body.List...)
+		declOuts, outputs := inputsOrOutputs(i.Type.Results, "godebugResult")
+		declIns, inputs := inputsOrOutputs(i.Type.Params, "godebugInput")
+		prepend := append(declIns, declOuts...)
+		prepend = append(prepend, genEnterFunc(i, inputs, outputs)...)
+		prepend = append(prepend, &ast.DeferStmt{
+			Call: newCall("godebug", "ExitFunc"),
+		})
+
+		i.Body.List = append(prepend, i.Body.List...)
 	case *ast.BlockStmt:
 		i.List = v.stmtBuf
 	case *ast.IfStmt:
