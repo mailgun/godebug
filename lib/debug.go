@@ -74,8 +74,9 @@ var currentDepth int
 var debuggerDepth int
 
 // EnterFunc marks the beginning of a function.
-func EnterFunc() {
+func EnterFunc(func()) bool {
 	currentDepth++
+	return true
 }
 
 // ExitFunc marks the end of a function.
