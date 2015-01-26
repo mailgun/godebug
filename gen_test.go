@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -61,6 +62,7 @@ func compareGolden(t *testing.T, godebug, test string) {
 	}
 	if !bytes.Equal(buf.Bytes(), golden) {
 		diff := getDiff(filepath.Join("golden_tests", test+"-out.go"), buf.Bytes())
+		fmt.Println(buf.String())
 		t.Errorf("%s: got != want. Diff:\n%s", test, diff)
 	}
 }

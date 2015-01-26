@@ -62,7 +62,7 @@ func main() {
 		defs = pkgInfo.Defs
 		pkg = pkgInfo.Pkg
 		for _, f := range pkgInfo.Files {
-			ast.Walk(&visitor{context: f}, f)
+			ast.Walk(&visitor{context: f, scopeVar: fileScope(f.Pos())}, f)
 			astutil.AddImport(fs, f, "github.com/mailgun/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 			out := os.Stdout
@@ -80,9 +80,9 @@ func main() {
 	}
 }
 
-func newCallStmt(selector, fnName string) *ast.ExprStmt {
+func newCallStmt(selector, fnName string, args ...ast.Expr) *ast.ExprStmt {
 	return &ast.ExprStmt{
-		X: newCall(selector, fnName),
+		X: newCall(selector, fnName, args...),
 	}
 }
 
@@ -260,8 +260,8 @@ func inputsOrOutputs(fieldList *ast.FieldList, prefix string) (decl []ast.Stmt, 
 			if name.Name == "_" {
 				name = ast.NewIdent(prefix + strconv.Itoa(count))
 				spec.Names = append(spec.Names, name)
-				count++
 			}
+			count++
 			all = append(all, name)
 		}
 		if len(spec.Names) > 0 {
@@ -317,6 +317,39 @@ func (v *visitor) finalizeNode() {
 		})
 
 		i.Body.List = append(prepend, i.Body.List...)
+	case *ast.FuncLit:
+		// Transform the function literal into this form:
+		//   func(<inputs>) <outputs> {
+		//       <var statement for unnamed outputs>
+		//       godebug.EnterFunc(func() {
+		//           <outputs> = func() <outputs> {
+		//               ... function body here
+		//           }
+		//       })
+		//       return <outputs>
+		//   }
+		decl, outputs := inputsOrOutputs(i.Type.Results, "godebugResult")
+		newBody := &ast.BlockStmt{}
+		newBody.List = append(decl,
+			newCallStmt("godebug", "EnterFunc", &ast.FuncLit{
+				Type: &ast.FuncType{Params: &ast.FieldList{}},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{&ast.AssignStmt{
+						Lhs: outputs,
+						Tok: token.ASSIGN,
+						Rhs: []ast.Expr{
+							&ast.CallExpr{
+								Fun: &ast.FuncLit{
+									Type: &ast.FuncType{
+										Params:  &ast.FieldList{},
+										Results: i.Type.Results,
+									},
+									Body: i.Body,
+								}}}}}}}),
+			newCallStmt("godebug", "ExitFunc"),
+			&ast.ReturnStmt{Results: outputs},
+		)
+		i.Body = newBody
 	case *ast.BlockStmt:
 		i.List = v.stmtBuf
 	case *ast.IfStmt:
@@ -379,6 +412,9 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	case *ast.FuncDecl:
 		// Add Declare() call first thing in the function for any variables bound by the function signature.
 		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: fileScope(i.Pos())}
+	case *ast.FuncLit:
+		// Add Declare() call first thing in the function for any variables bound by the function signature.
+		return &visitor{context: node, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar}
 	case *ast.BlockStmt:
 		w := &visitor{context: node, stmtBuf: make([]ast.Stmt, 0, 3*len(i.List)), scopeVar: v.scopeVar}
 		if len(v.blockVars) > 0 {
