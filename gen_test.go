@@ -68,8 +68,12 @@ func compareGolden(t *testing.T, godebug, test string) {
 }
 
 func runGolden(t *testing.T, test string) {
-	if err := exec.Command("go", "run", filepath.Join("golden_tests", test+"-out.go")).Run(); err != nil {
-		t.Error("Golden file failed to run:", err)
+	var buf bytes.Buffer
+	cmd := exec.Command("go", "run", filepath.Join("golden_tests", test+"-out.go"))
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	if err := cmd.Run(); err != nil {
+		t.Errorf("Golden file failed to run: %v\n%s", err, buf.Bytes())
 	}
 }
 
