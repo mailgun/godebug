@@ -19,32 +19,29 @@ type Scope struct {
 	parent *Scope
 }
 
-var scopeStack []*Scope
-
 // EnteringNewScope returns a new Scope and internally sets
 // the current scope to be the returned scope.
 func EnteringNewScope() *Scope {
-	s := &Scope{vars: make(map[string]interface{})}
-	scopeStack = append(scopeStack, s)
-	return s
+	return &Scope{vars: make(map[string]interface{})}
 }
 
 // EnteringNewChildScope returns a new Scope that is the
 // child of s and internally sets the current scope to be
 // the returned scope.
 func (s *Scope) EnteringNewChildScope() *Scope {
-	child := &Scope{
+	return &Scope{
 		vars:   make(map[string]interface{}),
 		parent: s,
 	}
-	scopeStack = append(scopeStack, child)
-	return child
 }
 
-// End informs the debugger that the program is moving outside
-// the text of s, and thus the bindings in s are no longer valid.
-func (s *Scope) End() {
-	scopeStack = scopeStack[:len(scopeStack)-1]
+func (s *Scope) getVar(name string) (i interface{}, ok bool) {
+	for scope := s; scope != nil; scope = scope.parent {
+		if i, ok = scope.vars[name]; ok {
+			return i, true
+		}
+	}
+	return nil, false
 }
 
 // Declare creates new variable bindings in s from a list of name, value pairs.
@@ -76,8 +73,7 @@ var (
 	debuggerDepth    int
 	context          = getPreferredContextManager()
 	goroutineKey     = gls.GenSym()
-	goroutineID      = gls.GenSym()
-	currentGoroutine int32
+	currentGoroutine uint32
 	ids              idPool
 )
 
@@ -85,20 +81,15 @@ var (
 // the function that is being entered. If proceed is false, EnterFunc did in fact call
 // fn, and so the caller of EnterFunc should return immediately rather than proceed to
 // duplicate the effects of fn.
-func EnterFunc(fn func()) (proceed bool) {
-	// If we're in state run, just keep going.
-	if atomic.LoadInt32(&currentState) == run {
-		return true
-	}
-
+func EnterFunc(fn func()) (ctx *Context, proceed bool) {
 	// We've entered a new function. If we're in step or next mode we have some bookkeeping to do,
-	// but only if the current goroutine is the one the debugger is following. How do we determine
-	// that? With goroutine local storage. In particular, with the github.com/jtolds/gls API.
+	// but only if the current goroutine is the one the debugger is following.
 	//
 	// We consult context to determine whether we are the goroutine the debugger is following. If
 	// context has not seen our goroutine before, the ok it returns is false. Why would that happen?
 	// godebug supports generating debug code for a library that is later built into a binary. If that
 	// happens, then context will not see any goroutines until they call code from the debugged library.
+	// context will also not see any goroutines while the debugger is in state run.
 	val, ok := context.GetValue(goroutineKey)
 	if !ok {
 		// This is the first time context has seen the current goroutine.
@@ -108,15 +99,15 @@ func EnterFunc(fn func()) (proceed bool) {
 		//
 		// We record some bookkeeping information with context and then continue running. This means we will
 		// invoke fn, which means the caller should not proceed. After running it, return false.
-		id := ids.Acquire()
-		defer ids.Release(id)
-		context.SetValues(gls.Values{goroutineID: id}, fn)
-		return false
+		id := uint32(ids.Acquire())
+		defer ids.Release(uint(id))
+		context.SetValues(gls.Values{goroutineKey: id}, fn)
+		return nil, false
 	}
-	if val.(int32) == atomic.LoadInt32(&currentGoroutine) {
+	if val.(uint32) == atomic.LoadUint32(&currentGoroutine) && currentState != run {
 		currentDepth++
 	}
-	return true
+	return &Context{goroutine: val.(uint32)}, true
 }
 
 // ExitFunc marks the end of a function.
@@ -128,7 +119,7 @@ func ExitFunc() {
 	if !ok {
 		panic("Logic error in the debugger. Sorry! Let me know about this in the github issue tracker.")
 	}
-	if val.(int32) != atomic.LoadInt32(&currentGoroutine) {
+	if val.(uint32) != atomic.LoadUint32(&currentGoroutine) {
 		return
 	}
 	if currentState == next && currentDepth == debuggerDepth {
@@ -137,48 +128,62 @@ func ExitFunc() {
 	currentDepth--
 }
 
+// Context contains debugging context information.
+type Context struct {
+	goroutine uint32
+}
+
 // Line marks a normal line where the debugger might pause.
-func Line() {
+func Line(c *Context, s *Scope) {
 	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
 		return
 	}
 	debuggerDepth = currentDepth
 	printLine()
-	waitForInput()
+	waitForInput(s)
 }
 
 var skipNextElseIfExpr bool
 
 // ElseIfSimpleStmt marks a simple statement preceding an "else if" expression.
-func ElseIfSimpleStmt(line string) {
-	SLine(line)
+func ElseIfSimpleStmt(c *Context, s *Scope, line string) {
+	SLine(c, s, line)
 	if currentState == next {
 		skipNextElseIfExpr = true
 	}
 }
 
 // ElseIfExpr marks an "else if" expression.
-func ElseIfExpr(line string) {
+func ElseIfExpr(c *Context, s *Scope, line string) {
 	if skipNextElseIfExpr {
 		skipNextElseIfExpr = false
 		return
 	}
-	SLine(line)
+	SLine(c, s, line)
 }
 
 // SLine is like Line, except that the debugger should print the provided line rather than
 // reading the next line from the source code.
-func SLine(line string) {
+func SLine(c *Context, s *Scope, line string) {
 	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
 		return
 	}
 	debuggerDepth = currentDepth
 	fmt.Println("->", line)
-	waitForInput()
+	waitForInput(s)
 }
 
-// SetTrace is the entrypoint to the debugger.
+// SetTrace is the entrypoint to the debugger. The code generator converts
+// this call to a call to SetTraceGen.
 func SetTrace() {
+}
+
+// SetTraceGen is the generated entrypoint to the debugger.
+func SetTraceGen(ctx *Context) {
+	if atomic.LoadInt32(&currentState) != run {
+		return
+	}
+	currentGoroutine = ctx.goroutine
 	currentState = step
 }
 
@@ -188,18 +193,7 @@ func init() {
 	input = bufio.NewScanner(os.Stdin)
 }
 
-func getVar(name string) (i interface{}, ok bool) {
-	scope := scopeStack[len(scopeStack)-1]
-	for scope != nil {
-		if i, ok = scope.vars[name]; ok {
-			return i, true
-		}
-		scope = scope.parent
-	}
-	return nil, false
-}
-
-func waitForInput() {
+func waitForInput(scope *Scope) {
 	for {
 		fmt.Print("(godebug) ")
 		if !input.Scan() {
@@ -216,14 +210,14 @@ func waitForInput() {
 			currentState = step
 			return
 		}
-		if v, ok := getVar(strings.TrimSpace(s)); ok {
+		if v, ok := scope.getVar(strings.TrimSpace(s)); ok {
 			fmt.Println(dereference(v))
 			continue
 		}
 		var cmd, name string
 		n, _ := fmt.Sscan(s, &cmd, &name)
 		if n == 2 && (cmd == "p" || cmd == "print") {
-			if v, ok := getVar(strings.TrimSpace(name)); ok {
+			if v, ok := scope.getVar(strings.TrimSpace(name)); ok {
 				fmt.Println(dereference(v))
 				continue
 			}
