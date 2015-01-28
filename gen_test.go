@@ -56,8 +56,9 @@ func compareGolden(t *testing.T, godebug, test string) {
 	cmd := exec.Command(godebug, filepath.Join("golden_tests", test+"-in.go"))
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
-	//cmd.Stderr = os.Stderr
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
+		fmt.Println(buf.String())
 		t.Fatal(err)
 	}
 	if !bytes.Equal(buf.Bytes(), golden) {
