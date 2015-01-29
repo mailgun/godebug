@@ -20,6 +20,8 @@ func main() {
 	godebugScope.Declare("hi", &hi, "there", &there)
 	godebug.Line(ctx, godebugScope)
 	fmt.Println(hi, there)
+	godebug.Line(ctx, godebugScope)
+	bar()
 }
 
 var foo = func(a, _ int) (b, _ string) {
@@ -40,4 +42,18 @@ var foo = func(a, _ int) (b, _ string) {
 	}
 	godebug.ExitFunc()
 	return b, godebugResult2
+}
+
+var bar = func() {
+	var ctx *godebug.Context
+	fn := func() {
+		godebug.Line(ctx, func_lit_in_goScope)
+		fmt.Println("No inputs or outputs")
+	}
+	var ok bool
+	ctx, ok = godebug.EnterFunc(fn)
+	if ok {
+		fn()
+	}
+	godebug.ExitFunc()
 }

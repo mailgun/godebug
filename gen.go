@@ -326,16 +326,40 @@ func (v *visitor) finalizeNode() {
 		//       return <outputs>
 		//   }
 		//
-		//   func(<inputs>) <outputs> {
-		//       <var statement for unnamed outputs>
-		//       godebug.EnterFunc(func() {
-		//           <outputs> = func() <outputs> {
-		//               ... function body here
-		//           }
-		//       })
-		//       return <outputs>
+		//   OR
+		//
+		//   func(<inputs>) {
+		//       var ctx *godebug.Context
+		//       fn := func() {
+		//           ... function body here
+		//       }
+		//       var ok bool
+		//       ctx, ok = godebug.EnterFunc(fn)
+		//       if ok {
+		//           fn()
+		//       }
+		//       godebug.ExitFunc()
 		//   }
 		decl, outputs := inputsOrOutputs(i.Type.Results, "godebugResult")
+		wrappedFuncLit := &ast.FuncLit{
+			Type: &ast.FuncType{
+				Params:  &ast.FieldList{},
+				Results: i.Type.Results,
+			},
+			Body: i.Body,
+		}
+		if len(outputs) > 0 {
+			wrappedFuncLit = &ast.FuncLit{
+				Type: &ast.FuncType{Params: &ast.FieldList{}},
+				Body: &ast.BlockStmt{
+					List: []ast.Stmt{
+						&ast.AssignStmt{
+							Lhs: outputs,
+							Tok: token.ASSIGN,
+							Rhs: []ast.Expr{
+								&ast.CallExpr{
+									Fun: wrappedFuncLit}}}}}}
+		}
 		newBody := &ast.BlockStmt{}
 		newBody.List = append(decl,
 			&ast.DeclStmt{
@@ -348,22 +372,7 @@ func (v *visitor) finalizeNode() {
 			&ast.AssignStmt{
 				Lhs: []ast.Expr{ast.NewIdent("fn")},
 				Tok: token.DEFINE,
-				Rhs: []ast.Expr{
-					&ast.FuncLit{
-						Type: &ast.FuncType{Params: &ast.FieldList{}},
-						Body: &ast.BlockStmt{
-							List: []ast.Stmt{&ast.AssignStmt{
-								Lhs: outputs,
-								Tok: token.ASSIGN,
-								Rhs: []ast.Expr{
-									&ast.CallExpr{
-										Fun: &ast.FuncLit{
-											Type: &ast.FuncType{
-												Params:  &ast.FieldList{},
-												Results: i.Type.Results,
-											},
-											Body: i.Body,
-										}}}}}}}}},
+				Rhs: []ast.Expr{wrappedFuncLit}},
 			&ast.DeclStmt{
 				Decl: &ast.GenDecl{
 					Tok: token.VAR,
@@ -383,8 +392,10 @@ func (v *visitor) finalizeNode() {
 							X: &ast.CallExpr{
 								Fun: ast.NewIdent("fn")}}}}},
 			newCallStmt("godebug", "ExitFunc"),
-			&ast.ReturnStmt{Results: outputs},
 		)
+		if len(outputs) > 0 {
+			newBody.List = append(newBody.List, &ast.ReturnStmt{Results: outputs})
+		}
 		i.Body = newBody
 	case *ast.BlockStmt:
 		i.List = v.stmtBuf
