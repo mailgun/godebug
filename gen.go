@@ -244,21 +244,33 @@ func inputsOrOutputs(fieldList *ast.FieldList, prefix string) (decl []ast.Stmt, 
 
 func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 	// Generates this structure:
+	//   <var statement for function receiver if it exists and is anonymous>
 	//   ctx, ok := godebug.EnterFunc(func) {
-	//       <outputs> = <fn.Name>(inputs)
+	//       <outputs> = <receiver if exists DOT><fn.Name>(inputs)
 	//   })
 	//   if !ok {
 	//       return <outputs>
 	//   }
-	//
-	//   if !godebug.EnterFunc(func() {
-	//       <outputs> = <fn.Name>(inputs)
-	//   }) {
-	//       return <outputs>
-	//   }
+	var pseudoIdent ast.Expr = fn.Name
+	var result []ast.Stmt
+	if fn.Recv != nil {
+		if len(fn.Recv.List[0].Names) == 0 {
+			result = append(result, &ast.DeclStmt{
+				Decl: &ast.GenDecl{
+					Tok: token.VAR,
+					Specs: []ast.Spec{
+						&ast.ValueSpec{
+							Names: []*ast.Ident{ast.NewIdent("godebugReceiver")},
+							Type:  fn.Recv.List[0].Type}}}},
+			)
+			pseudoIdent = newSel("godebugReceiver", fn.Name.Name)
+		} else {
+			pseudoIdent = newSel(fn.Recv.List[0].Names[0].Name, fn.Name.Name)
+		}
+	}
 	var innerCall ast.Stmt = &ast.ExprStmt{
 		X: &ast.CallExpr{
-			Fun:  fn.Name,
+			Fun:  pseudoIdent,
 			Args: inputs,
 		},
 	}
@@ -269,7 +281,7 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 			Rhs: []ast.Expr{innerCall.(*ast.ExprStmt).X},
 		}
 	}
-	return []ast.Stmt{
+	return append(result, []ast.Stmt{
 		&ast.AssignStmt{
 			Lhs: []ast.Expr{ast.NewIdent("ctx"), ast.NewIdent("ok")},
 			Tok: token.DEFINE,
@@ -287,7 +299,8 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 			Body: &ast.BlockStmt{
 				List: []ast.Stmt{
 					&ast.ReturnStmt{
-						Results: outputs}}}}}
+						Results: outputs}}}}}...,
+	)
 }
 
 func (v *visitor) finalizeNode() {
