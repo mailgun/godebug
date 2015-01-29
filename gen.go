@@ -174,44 +174,24 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 		return
 	}
 	text := getText(pos, body.Lbrace)
-	call := newCall("godebug", "SLine")
-	call.Args = append(call.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
+	call := newCall("godebug", "SLine", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
 	body.List = append(body.List, &ast.ExprStmt{X: call})
 }
 
-func ifElseCondWrap(cond ast.Expr, text string) ast.Expr {
+func (v *visitor) ifElseCondWrap(cond ast.Expr, text string) ast.Expr {
 	return &ast.CallExpr{
 		Fun: &ast.FuncLit{
 			Type: &ast.FuncType{
 				Results: &ast.FieldList{
 					List: []*ast.Field{{
-						Type: ast.NewIdent("bool"),
-					}},
-				},
-			},
+						Type: ast.NewIdent("bool")}}}},
 			Body: &ast.BlockStmt{
 				List: []ast.Stmt{
-					&ast.ExprStmt{
-						X: &ast.CallExpr{
-							Fun: newSel("godebug", "ElseIfExpr"),
-							Args: []ast.Expr{
-								&ast.BasicLit{
-									Kind:  token.STRING,
-									Value: strconv.Quote(text),
-								},
-							},
-						},
-					},
-					&ast.ReturnStmt{
-						Results: []ast.Expr{cond},
-					},
-				},
-			},
-		},
-	}
+					newCallStmt("godebug", "ElseIfExpr", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)}),
+					&ast.ReturnStmt{Results: []ast.Expr{cond}}}}}}
 }
 
-func ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
+func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
 	results := &ast.FieldList{List: make([]*ast.Field, len(vars))}
 	for i, expr := range vars {
 		ident, ok := expr.(*ast.Ident)
@@ -226,28 +206,16 @@ func ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
-				&ast.ExprStmt{
-					X: &ast.CallExpr{
-						Fun: newSel("godebug", "ElseIfSimpleStmt"),
-						Args: []ast.Expr{
-							&ast.BasicLit{
-								Kind:  token.STRING,
-								Value: strconv.Quote(text),
-							},
-						},
-					},
-				},
-				&ast.ReturnStmt{
-					Results: vals,
-				},
-			},
-		},
-	}}
+				newCallStmt("godebug", "ElseIfSimpleStmt", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)}),
+				&ast.ReturnStmt{Results: vals}}}}}
 }
 
 var blank = ast.NewIdent("_")
 
 func inputsOrOutputs(fieldList *ast.FieldList, prefix string) (decl []ast.Stmt, all []ast.Expr) {
+	if fieldList == nil {
+		return
+	}
 	count := 1
 	var specs []ast.Spec
 	for _, field := range fieldList.List {
@@ -276,26 +244,46 @@ func inputsOrOutputs(fieldList *ast.FieldList, prefix string) (decl []ast.Stmt, 
 
 func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 	// Generates this structure:
+	//   ctx, ok := godebug.EnterFunc(func) {
+	//       <outputs> = <fn.Name>(inputs)
+	//   })
+	//   if !ok {
+	//       return <outputs>
+	//   }
+	//
 	//   if !godebug.EnterFunc(func() {
 	//       <outputs> = <fn.Name>(inputs)
 	//   }) {
 	//       return <outputs>
 	//   }
+	var innerCall ast.Stmt = &ast.ExprStmt{
+		X: &ast.CallExpr{
+			Fun:  fn.Name,
+			Args: inputs,
+		},
+	}
+	if len(outputs) > 0 {
+		innerCall = &ast.AssignStmt{
+			Lhs: outputs,
+			Tok: token.ASSIGN,
+			Rhs: []ast.Expr{innerCall.(*ast.ExprStmt).X},
+		}
+	}
 	return []ast.Stmt{
-		&ast.IfStmt{
-			Cond: &ast.UnaryExpr{
-				Op: token.NOT,
-				X: newCall("godebug", "EnterFunc", &ast.FuncLit{
+		&ast.AssignStmt{
+			Lhs: []ast.Expr{ast.NewIdent("ctx"), ast.NewIdent("ok")},
+			Tok: token.DEFINE,
+			Rhs: []ast.Expr{
+				newCall("godebug", "EnterFunc", &ast.FuncLit{
 					Type: &ast.FuncType{Params: &ast.FieldList{}},
 					Body: &ast.BlockStmt{
 						List: []ast.Stmt{
-							&ast.AssignStmt{
-								Lhs: outputs,
-								Tok: token.ASSIGN,
-								Rhs: []ast.Expr{&ast.CallExpr{
-									Fun:  fn.Name,
-									Args: inputs,
-								}}}}}})},
+							innerCall}}})}},
+		&ast.IfStmt{
+			Cond: &ast.UnaryExpr{
+				Op: token.NOT,
+				X:  ast.NewIdent("ok"),
+			},
 			Body: &ast.BlockStmt{
 				List: []ast.Stmt{
 					&ast.ReturnStmt{
@@ -305,20 +293,39 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 func (v *visitor) finalizeNode() {
 	switch i := v.context.(type) {
 	case *ast.FuncDecl:
-		if i.Body == nil || (pkg.Name() == "main" && i.Name.Name == "main") {
+		if i.Body == nil {
 			break
 		}
 		declOuts, outputs := inputsOrOutputs(i.Type.Results, "godebugResult")
 		declIns, inputs := inputsOrOutputs(i.Type.Params, "godebugInput")
 		prepend := append(declIns, declOuts...)
 		prepend = append(prepend, genEnterFunc(i, inputs, outputs)...)
-		prepend = append(prepend, &ast.DeferStmt{
-			Call: newCall("godebug", "ExitFunc"),
-		})
+		if !(pkg.Name() == "main" && i.Name.Name == "main") {
+			prepend = append(prepend, &ast.DeferStmt{
+				Call: newCall("godebug", "ExitFunc"),
+			})
+		}
 
 		i.Body.List = append(prepend, i.Body.List...)
 	case *ast.FuncLit:
 		// Transform the function literal into this form:
+		//   func(<inputs>) <outputs> {
+		//       <var statement for unnamed outputs>
+		//       var ctx *godebug.Context
+		//       fn := func() {
+		//           <outputs> = func() <outputs> {
+		//               ... function body here
+		//           }()
+		//       }
+		//       var ok bool
+		//       ctx, ok = godebug.EnterFunc(fn)
+		//       if ok {
+		//           fn()
+		//       }
+		//       godebug.ExitFunc()
+		//       return <outputs>
+		//   }
+		//
 		//   func(<inputs>) <outputs> {
 		//       <var statement for unnamed outputs>
 		//       godebug.EnterFunc(func() {
@@ -331,21 +338,50 @@ func (v *visitor) finalizeNode() {
 		decl, outputs := inputsOrOutputs(i.Type.Results, "godebugResult")
 		newBody := &ast.BlockStmt{}
 		newBody.List = append(decl,
-			newCallStmt("godebug", "EnterFunc", &ast.FuncLit{
-				Type: &ast.FuncType{Params: &ast.FieldList{}},
+			&ast.DeclStmt{
+				Decl: &ast.GenDecl{
+					Tok: token.VAR,
+					Specs: []ast.Spec{
+						&ast.ValueSpec{
+							Names: []*ast.Ident{ast.NewIdent("ctx")},
+							Type:  &ast.StarExpr{X: newSel("godebug", "Context")}}}}},
+			&ast.AssignStmt{
+				Lhs: []ast.Expr{ast.NewIdent("fn")},
+				Tok: token.DEFINE,
+				Rhs: []ast.Expr{
+					&ast.FuncLit{
+						Type: &ast.FuncType{Params: &ast.FieldList{}},
+						Body: &ast.BlockStmt{
+							List: []ast.Stmt{&ast.AssignStmt{
+								Lhs: outputs,
+								Tok: token.ASSIGN,
+								Rhs: []ast.Expr{
+									&ast.CallExpr{
+										Fun: &ast.FuncLit{
+											Type: &ast.FuncType{
+												Params:  &ast.FieldList{},
+												Results: i.Type.Results,
+											},
+											Body: i.Body,
+										}}}}}}}}},
+			&ast.DeclStmt{
+				Decl: &ast.GenDecl{
+					Tok: token.VAR,
+					Specs: []ast.Spec{
+						&ast.ValueSpec{
+							Names: []*ast.Ident{ast.NewIdent("ok")},
+							Type:  ast.NewIdent("bool")}}}},
+			&ast.AssignStmt{
+				Lhs: []ast.Expr{ast.NewIdent("ctx"), ast.NewIdent("ok")},
+				Tok: token.ASSIGN,
+				Rhs: []ast.Expr{newCall("godebug", "EnterFunc", ast.NewIdent("fn"))}},
+			&ast.IfStmt{
+				Cond: ast.NewIdent("ok"),
 				Body: &ast.BlockStmt{
-					List: []ast.Stmt{&ast.AssignStmt{
-						Lhs: outputs,
-						Tok: token.ASSIGN,
-						Rhs: []ast.Expr{
-							&ast.CallExpr{
-								Fun: &ast.FuncLit{
-									Type: &ast.FuncType{
-										Params:  &ast.FieldList{},
-										Results: i.Type.Results,
-									},
-									Body: i.Body,
-								}}}}}}}),
+					List: []ast.Stmt{
+						&ast.ExprStmt{
+							X: &ast.CallExpr{
+								Fun: ast.NewIdent("fn")}}}}},
 			newCallStmt("godebug", "ExitFunc"),
 			&ast.ReturnStmt{Results: outputs},
 		)
@@ -355,26 +391,25 @@ func (v *visitor) finalizeNode() {
 	case *ast.IfStmt:
 		if blk, ok := i.Else.(*ast.BlockStmt); ok {
 			elseText := getText(i.Body.End()-1, blk.Lbrace)
-			elseCall := newCall("godebug", "SLine")
-			elseCall.Args = append(elseCall.Args, &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
+			elseCall := newCall("godebug", "SLine", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
 			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
 		}
 		if ifstmt, ok := i.Else.(*ast.IfStmt); ok {
 			text := getText(i.Body.End()-1, ifstmt.Body.Pos())
 			switch d := ifstmt.Init.(type) {
 			case *ast.AssignStmt:
-				d.Rhs = []ast.Expr{ifElseInitWrap(d.Lhs, d.Rhs, text)}
+				d.Rhs = []ast.Expr{v.ifElseInitWrap(d.Lhs, d.Rhs, text)}
 			case *ast.DeclStmt:
 				spec := d.Decl.(*ast.GenDecl).Specs[0].(*ast.ValueSpec)
 				exprs := make([]ast.Expr, len(spec.Names))
 				for i := range exprs {
 					exprs[i] = ast.Expr(spec.Names[i])
 				}
-				spec.Values = []ast.Expr{ifElseInitWrap(exprs, spec.Values, text)}
+				spec.Values = []ast.Expr{v.ifElseInitWrap(exprs, spec.Values, text)}
 			// TODO: optimize nil case
 			default:
 			}
-			ifstmt.Cond = ifElseCondWrap(ifstmt.Cond, text)
+			ifstmt.Cond = v.ifElseCondWrap(ifstmt.Cond, text)
 		}
 	case *ast.RangeStmt:
 		v.finalizeLoop(i.For, i.Body)
@@ -431,7 +466,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		return &visitor{context: node, scopeVar: v.scopeVar}
 	}
 	if !isSetTraceCall(node) {
-		v.stmtBuf = append(v.stmtBuf, newCallStmt("godebug", "Line"))
+		v.stmtBuf = append(v.stmtBuf, newCallStmt("godebug", "Line", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar)))
 	}
 	var newIdents []*ast.Ident
 	switch i := node.(type) {
@@ -441,6 +476,12 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		newIdents = listNewIdentsFromAssign(i)
 	}
 	if stmt, ok := node.(ast.Stmt); ok {
+		if isSetTraceCall(node) {
+			// Rewrite godebug.SetTrace() as godebug.SetTraceGen(ctx)
+			call := stmt.(*ast.ExprStmt).X.(*ast.CallExpr)
+			call.Args = []ast.Expr{ast.NewIdent("ctx")}
+			call.Fun.(*ast.SelectorExpr).Sel.Name = "SetTraceGen"
+		}
 		v.stmtBuf = append(v.stmtBuf, stmt)
 	}
 	if len(newIdents) > 0 {
@@ -498,7 +539,6 @@ func (v *visitor) createScope() {
 		Tok: token.DEFINE,
 		Rhs: []ast.Expr{newCall(v.scopeVar, "EnteringNewChildScope")},
 	})
-	v.stmtBuf = append(v.stmtBuf, &ast.DeferStmt{Call: newCall(name, "End")})
 	v.scopeVar = name
 	v.createdExplicitScope = true
 }
