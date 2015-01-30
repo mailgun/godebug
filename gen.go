@@ -274,6 +274,14 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 			Args: inputs,
 		},
 	}
+	if list := fn.Type.Params.List; len(list) > 0 {
+		// Check if the last argument is variadic. If so we'll need to output ellipses in our call.
+		if _, ok := list[len(list)-1].Type.(*ast.Ellipsis); ok {
+			// Set the Ellipsis field of the CallExpr to something nonzero.
+			// I'm pretty surprised this works. I thought we would need to compute the real Pos value.
+			innerCall.(*ast.ExprStmt).X.(*ast.CallExpr).Ellipsis = token.Pos(1)
+		}
+	}
 	if len(outputs) > 0 {
 		innerCall = &ast.AssignStmt{
 			Lhs: outputs,
