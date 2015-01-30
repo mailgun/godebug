@@ -217,7 +217,6 @@ func inputsOrOutputs(fieldList *ast.FieldList, prefix string) (decl []ast.Stmt, 
 		return
 	}
 	count := 1
-	var specs []ast.Spec
 	for _, field := range fieldList.List {
 		names := field.Names
 		if names == nil {
@@ -233,11 +232,8 @@ func inputsOrOutputs(fieldList *ast.FieldList, prefix string) (decl []ast.Stmt, 
 			all = append(all, name)
 		}
 		if len(spec.Names) > 0 {
-			specs = append(specs, spec)
+			decl = append(decl, &ast.DeclStmt{Decl: &ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{spec}}})
 		}
-	}
-	if len(specs) > 0 {
-		decl = []ast.Stmt{&ast.DeclStmt{Decl: &ast.GenDecl{Tok: token.VAR, Specs: specs}}}
 	}
 	return decl, all
 }

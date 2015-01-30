@@ -1,9 +1,9 @@
 package main
 
 func main() {
-	foo(3)
+	foo(3, 3)
 }
 
-func foo(int) string {
-	return "hello"
+func foo(int, int) (string, error) {
+	return "hello", nil
 }
