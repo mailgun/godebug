@@ -477,6 +477,10 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		v.finalizeNode()
 		return nil
 	case *ast.FuncDecl:
+		// Don't output debugging calls for init functions or empty functions.
+		if i.Name.Name == "init" && i.Recv == nil || i.Body == nil || len(i.Body.List) == 0 {
+			return nil
+		}
 		// Add Declare() call first thing in the function for any variables bound by the function signature.
 		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: fileScope(i.Pos())}
 	case *ast.FuncLit:
