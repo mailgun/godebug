@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"testing"
 )
+
+var files = flag.String("files", "", `Comma-separated list of files in the golden_tests directory to check. e.g. "example,name-conflicts". If not set, all of them will be checked.`)
 
 func TestGoldenFiles(t *testing.T) {
 	f, err := ioutil.TempFile("", "godebug")
@@ -36,11 +39,27 @@ func TestGoldenFiles(t *testing.T) {
 		t.Fatal("Readdirnames:", err)
 	}
 	tests := make(map[string]bool)
+	skipped := make(map[string]bool)
+	if *files != "" {
+		for _, name := range strings.Split(*files, ",") {
+			tests[name] = true
+		}
+	}
 	for _, name := range names {
 		if !strings.HasSuffix(name, "-out.go") && !strings.HasSuffix(name, "-in.go") {
 			t.Fatal("Unexpected file in golden_tests directory:", name)
 		}
-		tests[name[:strings.LastIndex(name, "-")]] = true
+		prefix := name[:strings.LastIndex(name, "-")]
+		if *files == "" {
+			tests[prefix] = true
+			continue
+		}
+		if !tests[prefix] {
+			skipped[prefix] = true
+		}
+	}
+	for name := range skipped {
+		fmt.Printf("Skipping golden test %q\n", name)
 	}
 	for test := range tests {
 		compareGolden(t, godebug, test)
