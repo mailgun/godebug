@@ -62,8 +62,10 @@ func main() {
 		defs = pkgInfo.Defs
 		pkg = pkgInfo.Pkg
 		for _, f := range pkgInfo.Files {
-			ast.Walk(&visitor{context: f, scopeVar: fileScope(f.Pos())}, f)
-			astutil.AddImport(fs, f, "github.com/mailgun/godebug/lib")
+			generateGodebugIdentifiers(f)
+			idents.fileScope = createFileScopeIdent(f)
+			ast.Walk(&visitor{context: f, scopeVar: idents.fileScope}, f)
+			astutil.AddNamedImport(fs, f, idents.godebug, "github.com/mailgun/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 			out := os.Stdout
 			if *w {
@@ -97,13 +99,14 @@ func newSel(selector, name string) *ast.SelectorExpr {
 	}
 }
 
-func fileScope(pos token.Pos) string {
-	return strings.Map(func(r rune) rune {
+func createFileScopeIdent(f *ast.File) string {
+	ident := strings.Map(func(r rune) rune {
 		if !unicode.In(r, unicode.Digit, unicode.Letter) {
 			return '_'
 		}
 		return r
-	}, path.Base(fs.Position(pos).Filename)) + "Scope"
+	}, path.Base(fs.Position(f.Pos()).Filename)) + "Scope"
+	return createConflictFreeName(ident, f, false)
 }
 
 func getText(start, end token.Pos) (text string) {
@@ -158,6 +161,7 @@ func isSetTraceCall(node ast.Node) (b bool) {
 		}
 	}()
 	sel := node.(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
+	// TODO: Either change this entrypoint or make it compatible with the user importing godebug by another name.
 	return sel.X.(*ast.Ident).Name == "godebug" && sel.Sel.Name == "SetTrace"
 }
 
@@ -174,7 +178,7 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 		return
 	}
 	text := getText(pos, body.Lbrace)
-	call := newCall("godebug", "SLine", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
+	call := newCall(idents.godebug, "SLine", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
 	body.List = append(body.List, &ast.ExprStmt{X: call})
 }
 
@@ -187,7 +191,7 @@ func (v *visitor) ifElseCondWrap(cond ast.Expr, text string) ast.Expr {
 						Type: ast.NewIdent("bool")}}}},
 			Body: &ast.BlockStmt{
 				List: []ast.Stmt{
-					newCallStmt("godebug", "ElseIfExpr", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)}),
+					newCallStmt(idents.godebug, "ElseIfExpr", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)}),
 					&ast.ReturnStmt{Results: []ast.Expr{cond}}}}}}
 }
 
@@ -206,7 +210,7 @@ func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) 
 		},
 		Body: &ast.BlockStmt{
 			List: []ast.Stmt{
-				newCallStmt("godebug", "ElseIfSimpleStmt", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)}),
+				newCallStmt(idents.godebug, "ElseIfSimpleStmt", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)}),
 				&ast.ReturnStmt{Results: vals}}}}}
 }
 
@@ -256,10 +260,10 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 					Tok: token.VAR,
 					Specs: []ast.Spec{
 						&ast.ValueSpec{
-							Names: []*ast.Ident{ast.NewIdent("godebugReceiver")},
+							Names: []*ast.Ident{ast.NewIdent(idents.receiver)},
 							Type:  fn.Recv.List[0].Type}}}},
 			)
-			pseudoIdent = newSel("godebugReceiver", fn.Name.Name)
+			pseudoIdent = newSel(idents.receiver, fn.Name.Name)
 		} else {
 			pseudoIdent = newSel(fn.Recv.List[0].Names[0].Name, fn.Name.Name)
 		}
@@ -287,10 +291,10 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 	}
 	return append(result, []ast.Stmt{
 		&ast.AssignStmt{
-			Lhs: []ast.Expr{ast.NewIdent("ctx"), ast.NewIdent("ok")},
+			Lhs: []ast.Expr{ast.NewIdent(idents.ctx), ast.NewIdent(idents.ok)},
 			Tok: token.DEFINE,
 			Rhs: []ast.Expr{
-				newCall("godebug", "EnterFunc", &ast.FuncLit{
+				newCall(idents.godebug, "EnterFunc", &ast.FuncLit{
 					Type: &ast.FuncType{Params: &ast.FieldList{}},
 					Body: &ast.BlockStmt{
 						List: []ast.Stmt{
@@ -298,7 +302,7 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 		&ast.IfStmt{
 			Cond: &ast.UnaryExpr{
 				Op: token.NOT,
-				X:  ast.NewIdent("ok"),
+				X:  ast.NewIdent(idents.ok),
 			},
 			Body: &ast.BlockStmt{
 				List: []ast.Stmt{
@@ -313,13 +317,13 @@ func (v *visitor) finalizeNode() {
 		if i.Body == nil {
 			break
 		}
-		declOuts, outputs := inputsOrOutputs(i.Type.Results, "godebugResult")
-		declIns, inputs := inputsOrOutputs(i.Type.Params, "godebugInput")
+		declOuts, outputs := inputsOrOutputs(i.Type.Results, idents.result)
+		declIns, inputs := inputsOrOutputs(i.Type.Params, idents.input)
 		prepend := append(declIns, declOuts...)
 		prepend = append(prepend, genEnterFunc(i, inputs, outputs)...)
 		if !(pkg.Name() == "main" && i.Name.Name == "main") {
 			prepend = append(prepend, &ast.DeferStmt{
-				Call: newCall("godebug", "ExitFunc"),
+				Call: newCall(idents.godebug, "ExitFunc"),
 			})
 		}
 
@@ -357,7 +361,8 @@ func (v *visitor) finalizeNode() {
 		//       }
 		//       godebug.ExitFunc()
 		//   }
-		decl, outputs := inputsOrOutputs(i.Type.Results, "godebugResult")
+		fn := createConflictFreeName("fn", i.Type, false)
+		decl, outputs := inputsOrOutputs(i.Type.Results, idents.result)
 		wrappedFuncLit := &ast.FuncLit{
 			Type: &ast.FuncType{
 				Params:  &ast.FieldList{},
@@ -384,10 +389,10 @@ func (v *visitor) finalizeNode() {
 					Tok: token.VAR,
 					Specs: []ast.Spec{
 						&ast.ValueSpec{
-							Names: []*ast.Ident{ast.NewIdent("ctx")},
-							Type:  &ast.StarExpr{X: newSel("godebug", "Context")}}}}},
+							Names: []*ast.Ident{ast.NewIdent(idents.ctx)},
+							Type:  &ast.StarExpr{X: newSel(idents.godebug, "Context")}}}}},
 			&ast.AssignStmt{
-				Lhs: []ast.Expr{ast.NewIdent("fn")},
+				Lhs: []ast.Expr{ast.NewIdent(fn)},
 				Tok: token.DEFINE,
 				Rhs: []ast.Expr{wrappedFuncLit}},
 			&ast.DeclStmt{
@@ -395,20 +400,20 @@ func (v *visitor) finalizeNode() {
 					Tok: token.VAR,
 					Specs: []ast.Spec{
 						&ast.ValueSpec{
-							Names: []*ast.Ident{ast.NewIdent("ok")},
+							Names: []*ast.Ident{ast.NewIdent(idents.ok)},
 							Type:  ast.NewIdent("bool")}}}},
 			&ast.AssignStmt{
-				Lhs: []ast.Expr{ast.NewIdent("ctx"), ast.NewIdent("ok")},
+				Lhs: []ast.Expr{ast.NewIdent(idents.ctx), ast.NewIdent(idents.ok)},
 				Tok: token.ASSIGN,
-				Rhs: []ast.Expr{newCall("godebug", "EnterFunc", ast.NewIdent("fn"))}},
+				Rhs: []ast.Expr{newCall(idents.godebug, "EnterFunc", ast.NewIdent(fn))}},
 			&ast.IfStmt{
-				Cond: ast.NewIdent("ok"),
+				Cond: ast.NewIdent(idents.ok),
 				Body: &ast.BlockStmt{
 					List: []ast.Stmt{
 						&ast.ExprStmt{
 							X: &ast.CallExpr{
-								Fun: ast.NewIdent("fn")}}}}},
-			newCallStmt("godebug", "ExitFunc"),
+								Fun: ast.NewIdent(fn)}}}}},
+			newCallStmt(idents.godebug, "ExitFunc"),
 		)
 		if len(outputs) > 0 {
 			newBody.List = append(newBody.List, &ast.ReturnStmt{Results: outputs})
@@ -419,7 +424,7 @@ func (v *visitor) finalizeNode() {
 	case *ast.IfStmt:
 		if blk, ok := i.Else.(*ast.BlockStmt); ok {
 			elseText := getText(i.Body.End()-1, blk.Lbrace)
-			elseCall := newCall("godebug", "SLine", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
+			elseCall := newCall(idents.godebug, "SLine", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
 			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
 		}
 		if ifstmt, ok := i.Else.(*ast.IfStmt); ok {
@@ -458,8 +463,8 @@ func (v *visitor) finalizeNode() {
 			Tok: token.VAR,
 			Specs: []ast.Spec{
 				&ast.ValueSpec{
-					Names:  []*ast.Ident{ast.NewIdent(fileScope(i.Pos()))},
-					Values: []ast.Expr{newCall("godebug", "EnteringNewScope")},
+					Names:  []*ast.Ident{ast.NewIdent(idents.fileScope)},
+					Values: []ast.Expr{newCall(idents.godebug, "EnteringNewScope")},
 				},
 			},
 		})
@@ -478,7 +483,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			return nil
 		}
 		// Add Declare() call first thing in the function for any variables bound by the function signature.
-		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: fileScope(i.Pos())}
+		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: idents.fileScope}
 	case *ast.FuncLit:
 		// Add Declare() call first thing in the function for any variables bound by the function signature.
 		return &visitor{context: node, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar}
@@ -498,7 +503,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		return &visitor{context: node, scopeVar: v.scopeVar}
 	}
 	if !isSetTraceCall(node) {
-		v.stmtBuf = append(v.stmtBuf, newCallStmt("godebug", "Line", ast.NewIdent("ctx"), ast.NewIdent(v.scopeVar)))
+		v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar)))
 	}
 	var newIdents []*ast.Ident
 	switch i := node.(type) {
@@ -511,7 +516,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		if isSetTraceCall(node) {
 			// Rewrite godebug.SetTrace() as godebug.SetTraceGen(ctx)
 			call := stmt.(*ast.ExprStmt).X.(*ast.CallExpr)
-			call.Args = []ast.Expr{ast.NewIdent("ctx")}
+			call.Args = []ast.Expr{ast.NewIdent(idents.ctx)}
 			call.Fun.(*ast.SelectorExpr).Sel.Name = "SetTraceGen"
 		}
 		v.stmtBuf = append(v.stmtBuf, stmt)
@@ -541,28 +546,28 @@ func getIdents(lists ...*ast.FieldList) (idents []*ast.Ident) {
 	return
 }
 
-func newDeclareCall(scopeVar string, idents []*ast.Ident) ast.Stmt {
+func newDeclareCall(scopeVar string, newVars []*ast.Ident) ast.Stmt {
 	if scopeVar == "" {
-		scopeVar = "godebugScope"
+		scopeVar = idents.scope
 	}
 	expr := newCallStmt(scopeVar, "Declare")
 	call := expr.X.(*ast.CallExpr)
-	call.Args = make([]ast.Expr, 2*len(idents))
-	for i, ident := range idents {
+	call.Args = make([]ast.Expr, 2*len(newVars))
+	for i, _var := range newVars {
 		call.Args[2*i] = &ast.BasicLit{
 			Kind:  token.STRING,
-			Value: strconv.Quote(ident.Name),
+			Value: strconv.Quote(_var.Name),
 		}
 		call.Args[2*i+1] = &ast.UnaryExpr{
 			Op: token.AND,
-			X:  ident,
+			X:  _var,
 		}
 	}
 	return expr
 }
 
 func (v *visitor) createScope() {
-	name := "godebugScope"
+	name := idents.scope
 	if v.scopeVar == "" {
 		v.scopeVar = name
 	}
@@ -573,4 +578,79 @@ func (v *visitor) createScope() {
 	})
 	v.scopeVar = name
 	v.createdExplicitScope = true
+}
+
+var idents struct {
+	ctx, ok, scope, receiver, fileScope, godebug, result, input string
+}
+
+func generateGodebugIdentifiers(f *ast.File) {
+	// Variables that won't have suffixes.
+	idents.ctx = createConflictFreeName("ctx", f, false)
+	idents.ok = createConflictFreeName("ok", f, false)
+	idents.scope = createConflictFreeName("scope", f, false)
+	idents.receiver = createConflictFreeName("receiver", f, false)
+	idents.godebug = createConflictFreeName("godebug", f, false)
+
+	// Variables that will have suffixes.
+	idents.result = createConflictFreeName("result", f, true)
+	idents.input = createConflictFreeName("input", f, true)
+}
+
+func createConflictFreeName(name string, parent ast.Node, hasSuffix bool) string {
+	// Visit all descendants of parent and check for usage of name. Prepend underscores until there are no conflicts, then return.
+	// At first I thought I would need to check declarations, too, but since the package is type checked, any declarations without usage will be invalid.
+	v := &nameVisitor{base: name, suffix: hasSuffix, conflicts: make(map[string]bool)}
+	ast.Walk(v, parent)
+	return v.getName()
+}
+
+type nameVisitor struct {
+	base      string
+	suffix    bool
+	conflicts map[string]bool
+}
+
+// getName returns a name that does not conflict with any identifiers observed while visiting nodes.
+func (v *nameVisitor) getName() (name string) {
+	for name = v.base; v.conflicts[name]; name = "_" + name {
+	}
+	return
+}
+
+func (v *nameVisitor) Visit(node ast.Node) ast.Visitor {
+	switch i := node.(type) {
+
+	// Some identifiers will not cause conflicts and can be ignored:
+	case *ast.SelectorExpr:
+		// For a selector expression x.f, identifiers in x can cause conflicts, but the identifier f will not.
+		ast.Walk(v, i.X)
+		return nil
+	case *ast.LabeledStmt:
+		// Labels do not conflict with identifiers that are not labels. Ignore the label, but walk its statement.
+		ast.Walk(v, i.Stmt)
+		return nil
+	case *ast.FuncDecl:
+		// Method names will not cause conflicts, but other parts of a function declaration can.
+		if i.Recv != nil {
+			ast.Walk(v, i.Recv)
+			ast.Walk(v, i.Type)
+			ast.Walk(v, i.Body)
+			return nil
+		}
+	case *ast.InterfaceType, *ast.StructType:
+		// Identifiers within interfaces and structs will not cause conflicts.
+		return nil
+
+	// Any other identifier we reach should be checked for a conflicting name.
+	case *ast.Ident:
+		name := i.Name
+		if v.suffix {
+			name = strings.TrimRight(name, "0123456789")
+		}
+		if strings.TrimLeft(name, "_") == v.base {
+			v.conflicts[name] = true
+		}
+	}
+	return v
 }
