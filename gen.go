@@ -488,6 +488,10 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		// Add Declare() call first thing in the function for any variables bound by the function signature.
 		return &visitor{context: node, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar}
 	case *ast.BlockStmt:
+		if v.stmtBuf != nil {
+			v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar)))
+			v.stmtBuf = append(v.stmtBuf, i)
+		}
 		w := &visitor{context: node, stmtBuf: make([]ast.Stmt, 0, 3*len(i.List)), scopeVar: v.scopeVar}
 		if len(v.blockVars) > 0 {
 			w.createScope()

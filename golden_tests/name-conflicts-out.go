@@ -2,7 +2,6 @@ package main
 
 import (
 	godebug "fmt"
-
 	_godebug "github.com/mailgun/godebug/lib"
 )
 
@@ -27,6 +26,7 @@ func (Foo) DoStuff(int) int {
 	__scope.Declare("fn", &fn, "ok", &ok, "_ok", &_ok, "ctx", &ctx, "result1", &result1, "input1", &input1, "receiver", &receiver, "name_conflicts_in_goScope", &name_conflicts_in_goScope, "scope", &scope)
 	_godebug.Line(_ctx, __scope)
 	godebug.Println(fn, ok, _ok, ctx, result1, input1, receiver, name_conflicts_in_goScope, scope, _scope)
+	_godebug.Line(_ctx, __scope)
 	return 3
 }
 
