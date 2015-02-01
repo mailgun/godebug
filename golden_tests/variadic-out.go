@@ -20,9 +20,7 @@ func Varargs(i ...int) int {
 }
 
 func main() {
-	ctx, ok := godebug.EnterFunc(func() {
-		main()
-	})
+	ctx, ok := godebug.EnterFunc(main)
 	if !ok {
 		return
 	}

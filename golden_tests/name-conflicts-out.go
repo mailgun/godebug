@@ -51,9 +51,7 @@ var f = func() {
 var _scope = 7
 
 func main() {
-	_ctx, __ok := _godebug.EnterFunc(func() {
-		main()
-	})
+	_ctx, __ok := _godebug.EnterFunc(main)
 	if !__ok {
 		return
 	}

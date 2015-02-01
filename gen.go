@@ -305,16 +305,25 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
 			Rhs: []ast.Expr{innerCall.(*ast.ExprStmt).X},
 		}
 	}
+
+	// Wrap the inner call in a func() that we can pass to EnterFunc.
+	var f ast.Expr = &ast.FuncLit{
+		Type: &ast.FuncType{Params: &ast.FieldList{}},
+		Body: &ast.BlockStmt{
+			List: []ast.Stmt{
+				innerCall}}}
+	// But if there are no arguments to the function, we don't need to wrap it.
+	// We can just pass the function itself.
+	if len(outputs) == 0 && len(inputs) == 0 {
+		f = pseudoIdent
+	}
+
 	return append(result, []ast.Stmt{
 		&ast.AssignStmt{
 			Lhs: []ast.Expr{ast.NewIdent(idents.ctx), ast.NewIdent(idents.ok)},
 			Tok: token.DEFINE,
 			Rhs: []ast.Expr{
-				newCall(idents.godebug, "EnterFunc", &ast.FuncLit{
-					Type: &ast.FuncType{Params: &ast.FieldList{}},
-					Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							innerCall}}})}},
+				newCall(idents.godebug, "EnterFunc", f)}},
 		&ast.IfStmt{
 			Cond: &ast.UnaryExpr{
 				Op: token.NOT,

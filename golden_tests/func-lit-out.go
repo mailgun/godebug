@@ -8,9 +8,7 @@ import (
 var func_lit_in_goScope = godebug.EnteringNewScope()
 
 func main() {
-	ctx, ok := godebug.EnterFunc(func() {
-		main()
-	})
+	ctx, ok := godebug.EnterFunc(main)
 	if !ok {
 		return
 	}

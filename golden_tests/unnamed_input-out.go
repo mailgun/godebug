@@ -5,9 +5,7 @@ import "github.com/mailgun/godebug/lib"
 var unnamed_input_in_goScope = godebug.EnteringNewScope()
 
 func main() {
-	ctx, ok := godebug.EnterFunc(func() {
-		main()
-	})
+	ctx, ok := godebug.EnterFunc(main)
 	if !ok {
 		return
 	}

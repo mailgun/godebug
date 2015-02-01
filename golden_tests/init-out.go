@@ -13,9 +13,7 @@ var a = 3
 type Foo int
 
 func (f *Foo) init() {
-	ctx, ok := godebug.EnterFunc(func() {
-		f.init()
-	})
+	ctx, ok := godebug.EnterFunc(f.init)
 	if !ok {
 		return
 	}

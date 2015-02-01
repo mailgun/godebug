@@ -36,9 +36,7 @@ func (Foo) Seven() Foo {
 }
 
 func main() {
-	ctx, ok := godebug.EnterFunc(func() {
-		main()
-	})
+	ctx, ok := godebug.EnterFunc(main)
 	if !ok {
 		return
 	}
