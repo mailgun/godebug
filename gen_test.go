@@ -14,7 +14,10 @@ import (
 	"testing"
 )
 
-var files = flag.String("files", "", `Comma-separated list of files in the golden_tests directory to check. e.g. "example,name-conflicts". If not set, all of them will be checked.`)
+var (
+	files  = flag.String("files", "", `Comma-separated list of files in the golden_tests directory to check. e.g. "example,name-conflicts". If not set, all of them will be checked.`)
+	accept = flag.Bool("accept", false, "Accept the output of the program as the new golden file.")
+)
 
 func TestGoldenFiles(t *testing.T) {
 	f, err := ioutil.TempFile("", "godebug")
@@ -81,6 +84,12 @@ func compareGolden(t *testing.T, godebug, test string) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(buf.Bytes(), golden) {
+		if *accept {
+			if err = ioutil.WriteFile(filepath.Join("golden_tests", test+"-out.go"), buf.Bytes(), 0644); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
 		diff := getDiff(filepath.Join("golden_tests", test+"-out.go"), buf.Bytes())
 		fmt.Println(buf.String())
 		t.Errorf("%s: got != want. Diff:\n%s", test, diff)
