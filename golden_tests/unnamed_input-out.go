@@ -16,15 +16,15 @@ func main() {
 }
 
 func foo(int, int) (string, error) {
-	var godebugInput1 int
-	var godebugInput2 int
-	var godebugResult1 string
-	var godebugResult2 error
+	var input1 int
+	var input2 int
+	var result1 string
+	var result2 error
 	ctx, ok := godebug.EnterFunc(func() {
-		godebugResult1, godebugResult2 = foo(godebugInput1, godebugInput2)
+		result1, result2 = foo(input1, input2)
 	})
 	if !ok {
-		return godebugResult1, godebugResult2
+		return result1, result2
 	}
 	defer godebug.ExitFunc()
 	godebug.Line(ctx, unnamed_input_in_goScope)

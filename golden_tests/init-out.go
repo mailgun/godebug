@@ -20,9 +20,9 @@ func (f *Foo) init() {
 		return
 	}
 	defer godebug.ExitFunc()
-	godebugScope := init_in_goScope.EnteringNewChildScope()
-	godebugScope.Declare("f", &f)
-	godebug.Line(ctx, godebugScope)
+	scope := init_in_goScope.EnteringNewChildScope()
+	scope.Declare("f", &f)
+	godebug.Line(ctx, scope)
 	*f = 1337
 }
 

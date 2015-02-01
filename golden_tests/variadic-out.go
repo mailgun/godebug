@@ -5,17 +5,17 @@ import "github.com/mailgun/godebug/lib"
 var variadic_in_goScope = godebug.EnteringNewScope()
 
 func Varargs(i ...int) int {
-	var godebugResult1 int
+	var result1 int
 	ctx, ok := godebug.EnterFunc(func() {
-		godebugResult1 = Varargs(i...)
+		result1 = Varargs(i...)
 	})
 	if !ok {
-		return godebugResult1
+		return result1
 	}
 	defer godebug.ExitFunc()
-	godebugScope := variadic_in_goScope.EnteringNewChildScope()
-	godebugScope.Declare("i", &i)
-	godebug.Line(ctx, godebugScope)
+	scope := variadic_in_goScope.EnteringNewChildScope()
+	scope.Declare("i", &i)
+	godebug.Line(ctx, scope)
 	return 6
 }
 

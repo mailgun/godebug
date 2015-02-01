@@ -16,22 +16,22 @@ func main() {
 	}
 	godebug.Line(ctx, func_lit_in_goScope)
 	hi, there := foo(7, 12)
-	godebugScope := func_lit_in_goScope.EnteringNewChildScope()
-	godebugScope.Declare("hi", &hi, "there", &there)
-	godebug.Line(ctx, godebugScope)
+	scope := func_lit_in_goScope.EnteringNewChildScope()
+	scope.Declare("hi", &hi, "there", &there)
+	godebug.Line(ctx, scope)
 	fmt.Println(hi, there)
-	godebug.Line(ctx, godebugScope)
+	godebug.Line(ctx, scope)
 	bar()
 }
 
 var foo = func(a, _ int) (b, _ string) {
-	var godebugResult2 string
+	var result2 string
 	var ctx *godebug.Context
 	fn := func() {
-		b, godebugResult2 = func() (b, _ string) {
-			godebugScope := func_lit_in_goScope.EnteringNewChildScope()
-			godebugScope.Declare("a", &a, "b", &b)
-			godebug.Line(ctx, godebugScope)
+		b, result2 = func() (b, _ string) {
+			scope := func_lit_in_goScope.EnteringNewChildScope()
+			scope.Declare("a", &a, "b", &b)
+			godebug.Line(ctx, scope)
 			return "Hello", "World"
 		}()
 	}
@@ -41,7 +41,7 @@ var foo = func(a, _ int) (b, _ string) {
 		fn()
 	}
 	godebug.ExitFunc()
-	return b, godebugResult2
+	return b, result2
 }
 
 var bar = func() {

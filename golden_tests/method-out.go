@@ -7,28 +7,28 @@ var method_in_goScope = godebug.EnteringNewScope()
 type Foo int
 
 func (f Foo) Double() Foo {
-	var godebugResult1 Foo
+	var result1 Foo
 	ctx, ok := godebug.EnterFunc(func() {
-		godebugResult1 = f.Double()
+		result1 = f.Double()
 	})
 	if !ok {
-		return godebugResult1
+		return result1
 	}
 	defer godebug.ExitFunc()
-	godebugScope := method_in_goScope.EnteringNewChildScope()
-	godebugScope.Declare("f", &f)
-	godebug.Line(ctx, godebugScope)
+	scope := method_in_goScope.EnteringNewChildScope()
+	scope.Declare("f", &f)
+	godebug.Line(ctx, scope)
 	return f * 2
 }
 
 func (Foo) Seven() Foo {
-	var godebugResult1 Foo
-	var godebugReceiver Foo
+	var result1 Foo
+	var receiver Foo
 	ctx, ok := godebug.EnterFunc(func() {
-		godebugResult1 = godebugReceiver.Seven()
+		result1 = receiver.Seven()
 	})
 	if !ok {
-		return godebugResult1
+		return result1
 	}
 	defer godebug.ExitFunc()
 	godebug.Line(ctx, method_in_goScope)

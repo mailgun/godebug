@@ -17,76 +17,76 @@ func main() {
 	}
 	godebug.Line(ctx, example_in_goScope)
 	x := mul(1, 2)
-	godebugScope := example_in_goScope.EnteringNewChildScope()
-	godebugScope.Declare("x", &x)
+	scope := example_in_goScope.EnteringNewChildScope()
+	scope.Declare("x", &x)
 	godebug.SetTraceGen(ctx)
-	godebug.Line(ctx, godebugScope)
+	godebug.Line(ctx, scope)
 	x = mul(x, x)
-	godebug.Line(ctx, godebugScope)
+	godebug.Line(ctx, scope)
 	if x == 4 {
-		godebug.Line(ctx, godebugScope)
+		godebug.Line(ctx, scope)
 		fmt.Println("It works! x == 4.")
 	} else if n := func() int {
-		godebug.ElseIfSimpleStmt(ctx, godebugScope, "} else if n := 2; n == 3 {")
+		godebug.ElseIfSimpleStmt(ctx, scope, "} else if n := 2; n == 3 {")
 		return 2
 	}(); func() bool {
-		godebug.ElseIfExpr(ctx, godebugScope, "} else if n := 2; n == 3 {")
+		godebug.ElseIfExpr(ctx, scope, "} else if n := 2; n == 3 {")
 		return n == 3
 	}() {
-		godebug.Line(ctx, godebugScope)
+		godebug.Line(ctx, scope)
 		fmt.Println("Math is broken. Ah!")
 	} else {
-		godebug.SLine(ctx, godebugScope, "} else {")
-		godebug.Line(ctx, godebugScope)
+		godebug.SLine(ctx, scope, "} else {")
+		godebug.Line(ctx, scope)
 		fmt.Println("What's going on? x ==", x)
 	}
 }
 
 func add(n, m int) int {
-	var godebugResult1 int
+	var result1 int
 	ctx, ok := godebug.EnterFunc(func() {
-		godebugResult1 = add(n, m)
+		result1 = add(n, m)
 	})
 	if !ok {
-		return godebugResult1
+		return result1
 	}
 	defer godebug.ExitFunc()
-	godebugScope := example_in_goScope.EnteringNewChildScope()
-	godebugScope.Declare("n", &n, "m", &m)
-	godebug.Line(ctx, godebugScope)
+	scope := example_in_goScope.EnteringNewChildScope()
+	scope.Declare("n", &n, "m", &m)
+	godebug.Line(ctx, scope)
 	if n == 0 {
-		godebug.Line(ctx, godebugScope)
+		godebug.Line(ctx, scope)
 		return m
 	}
-	godebug.Line(ctx, godebugScope)
+	godebug.Line(ctx, scope)
 	if m == 0 {
-		godebug.Line(ctx, godebugScope)
+		godebug.Line(ctx, scope)
 		return n
 	}
-	godebug.Line(ctx, godebugScope)
+	godebug.Line(ctx, scope)
 	return n + m
 }
 
 func mul(n, m int) int {
-	var godebugResult1 int
+	var result1 int
 	ctx, ok := godebug.EnterFunc(func() {
-		godebugResult1 = mul(n, m)
+		result1 = mul(n, m)
 	})
 	if !ok {
-		return godebugResult1
+		return result1
 	}
 	defer godebug.ExitFunc()
-	godebugScope := example_in_goScope.EnteringNewChildScope()
-	godebugScope.Declare("n", &n, "m", &m)
-	godebug.Line(ctx, godebugScope)
+	scope := example_in_goScope.EnteringNewChildScope()
+	scope.Declare("n", &n, "m", &m)
+	godebug.Line(ctx, scope)
 	var x int
-	godebugScope.Declare("x", &x)
-	godebug.Line(ctx, godebugScope)
+	scope.Declare("x", &x)
+	godebug.Line(ctx, scope)
 	for i := 0; i < m; i++ {
-		godebug.Line(ctx, godebugScope)
+		godebug.Line(ctx, scope)
 		x = add(x, m)
-		godebug.SLine(ctx, godebugScope, "for i := 0; i < m; i++ {")
+		godebug.SLine(ctx, scope, "for i := 0; i < m; i++ {")
 	}
-	godebug.Line(ctx, godebugScope)
+	godebug.Line(ctx, scope)
 	return x
 }

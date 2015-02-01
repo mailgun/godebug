@@ -64,8 +64,24 @@ func main() {
 		for _, f := range pkgInfo.Files {
 			generateGodebugIdentifiers(f)
 			idents.fileScope = createFileScopeIdent(f)
+			for _, imp := range f.Imports {
+				if imp.Path.Value == `"github.com/mailgun/godebug/lib"` {
+					idents.godebug = "godebug"
+					if imp.Name != nil {
+						idents.godebug = imp.Name.Name
+					}
+					break
+				}
+			}
+			if idents.godebug == "" {
+				idents.godebug = createConflictFreeName("godebug", f, false)
+			}
 			ast.Walk(&visitor{context: f, scopeVar: idents.fileScope}, f)
-			astutil.AddNamedImport(fs, f, idents.godebug, "github.com/mailgun/godebug/lib")
+			importName := idents.godebug
+			if importName == "godebug" {
+				importName = ""
+			}
+			astutil.AddNamedImport(fs, f, importName, "github.com/mailgun/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 			out := os.Stdout
 			if *w {
@@ -594,7 +610,9 @@ func generateGodebugIdentifiers(f *ast.File) {
 	idents.ok = createConflictFreeName("ok", f, false)
 	idents.scope = createConflictFreeName("scope", f, false)
 	idents.receiver = createConflictFreeName("receiver", f, false)
-	idents.godebug = createConflictFreeName("godebug", f, false)
+
+	// godebug is set elsewhere.
+	//idents.godebug = createConflictFreeName("godebug", f, false)
 
 	// Variables that will have suffixes.
 	idents.result = createConflictFreeName("result", f, true)
