@@ -1,7 +1,17 @@
 godebug
 -------
 
-`godebug` is a code-generation-based debugger for Go. It is currently in alpha stage -- expect problems.
+A debugger for Go.
+
+### How it works
+
+`godebug` uses source code generation to instrument your program with debugging calls. [go tool cover](http://blog.golang.org/cover) takes a similar approach to code coverage. When you run `godebug -w`, it parses your program, instruments function calls, variable declarations, and statement lines, and outputs the resulting code somewhere (currently either stdout or  in place over your original files). When you run this modified code, assuming you put a breakpoint somewhere, you can step through it and inspect variables. Coming later: evaluate arbitrary Go expressions and write to variables.
+
+
+### Status
+
+`godebug` is currently in alpha stage -- expect problems. In particular, support for multiple goroutines is not yet finished.
+
 
 ### Installation:
 
@@ -30,3 +40,4 @@ s(tep)        | run for one step
 p(rint) [var] | print a variable
 
 The debugger will attempt to interpret any text that does not match the above commands as a variable name. If that variable exists, the debugger will print it.
+
