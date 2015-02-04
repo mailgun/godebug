@@ -630,7 +630,6 @@ func generateGodebugIdentifiers(f *ast.File) {
 
 func createConflictFreeName(name string, parent ast.Node, hasSuffix bool) string {
 	// Visit all descendants of parent and check for usage of name. Prepend underscores until there are no conflicts, then return.
-	// At first I thought I would need to check declarations, too, but since the package is type checked, any declarations without usage will be invalid.
 	v := &nameVisitor{base: name, suffix: hasSuffix, conflicts: make(map[string]bool)}
 	ast.Walk(v, parent)
 	return v.getName()
