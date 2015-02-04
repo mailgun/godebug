@@ -1,0 +1,82 @@
+-> x = mul(x, x)
+(godebug) x
+4
+(godebug) p x
+4
+(godebug) s
+-> var x int
+(godebug) x
+Command not recognized, sorry! You typed: "x"
+(godebug) p x
+Command not recognized, sorry! You typed: "p x"
+(godebug) n
+-> for i := 0; i < m; i++ {
+(godebug) x
+0
+(godebug) i
+Command not recognized, sorry! You typed: "i"
+(godebug) p m
+4
+(godebug) n
+-> x = add(x, m)
+(godebug) x
+0
+(godebug) i
+Command not recognized, sorry! You typed: "i"
+(godebug) m
+4
+(godebug) n
+-> for i := 0; i < m; i++ {
+(godebug) x
+4
+(godebug) p i
+Command not recognized, sorry! You typed: "p i"
+(godebug) p m
+4
+(godebug) p n
+4
+(godebug) n
+-> x = add(x, m)
+(godebug) x
+4
+(godebug) n
+-> for i := 0; i < m; i++ {
+(godebug) x
+8
+(godebug) p i
+Command not recognized, sorry! You typed: "p i"
+(godebug) n
+-> x = add(x, m)
+(godebug) n
+-> for i := 0; i < m; i++ {
+(godebug) i
+Command not recognized, sorry! You typed: "i"
+(godebug) n
+-> x = add(x, m)
+(godebug) n
+-> for i := 0; i < m; i++ {
+(godebug) i
+Command not recognized, sorry! You typed: "i"
+(godebug) m
+4
+(godebug) x
+16
+(godebug) n
+-> return x
+(godebug) x
+16
+(godebug) n
+-> if x == 4 {
+(godebug) x
+16
+(godebug) n
+-> } else if n := 2; n == 3 {
+(godebug) n
+-> } else {
+(godebug) n
+-> fmt.Println("What's going on? x ==", x)
+(godebug) x
+16
+(godebug) n
+What's going on? x == 16
+
