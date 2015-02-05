@@ -30,7 +30,9 @@ func TestGoldenFiles(t *testing.T) {
 	f.Close()
 	godebug := f.Name()
 	defer os.Remove(godebug)
-	err = exec.Command("go", "build", "-o", godebug, "gen.go").Run()
+	cmd := exec.Command("go", "build", "-o", godebug)
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
 	if err != nil {
 		t.Fatal("failed to build godebug:", err)
 	}
