@@ -98,6 +98,10 @@ func main() {
 	}
 }
 
+func varDecl(specs ...ast.Spec) ast.Decl {
+	return &ast.GenDecl{Tok: token.VAR, Specs: specs}
+}
+
 func newCallStmt(selector, fnName string, args ...ast.Expr) *ast.ExprStmt {
 	return &ast.ExprStmt{
 		X: newCall(selector, fnName, args...),
@@ -252,88 +256,57 @@ func inputsOrOutputs(fieldList *ast.FieldList, prefix string) (decl []ast.Stmt, 
 			all = append(all, name)
 		}
 		if len(spec.Names) > 0 {
-			decl = append(decl, &ast.DeclStmt{Decl: &ast.GenDecl{Tok: token.VAR, Specs: []ast.Spec{spec}}})
+			decl = append(decl, &ast.DeclStmt{Decl: varDecl(spec)})
 		}
 	}
 	return decl, all
 }
 
-func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) []ast.Stmt {
-	// Generates this structure:
-	//   <var statement for function receiver if it exists and is anonymous>
-	//   ctx, ok := godebug.EnterFunc(func) {
-	//       <outputs> = <receiver if exists DOT><fn.Name>(inputs)
-	//   })
-	//   if !ok {
-	//       return <outputs>
-	//   }
-	var pseudoIdent ast.Expr = fn.Name
-	var result []ast.Stmt
+func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) (stmts []ast.Stmt) {
+	var (
+		pseudoIdent ast.Expr = fn.Name
+		recvType    ast.Expr
+		ellipsis    string
+	)
+
+	// Is this a method call or a function call?
 	if fn.Recv != nil {
+		// Is the receiver named or anonymous?
 		if len(fn.Recv.List[0].Names) == 0 {
-			result = append(result, &ast.DeclStmt{
-				Decl: &ast.GenDecl{
-					Tok: token.VAR,
-					Specs: []ast.Spec{
-						&ast.ValueSpec{
-							Names: []*ast.Ident{ast.NewIdent(idents.receiver)},
-							Type:  fn.Recv.List[0].Type}}}},
-			)
 			pseudoIdent = newSel(idents.receiver, fn.Name.Name)
+			recvType = fn.Recv.List[0].Type
 		} else {
 			pseudoIdent = newSel(fn.Recv.List[0].Names[0].Name, fn.Name.Name)
 		}
 	}
-	var innerCall ast.Stmt = &ast.ExprStmt{
-		X: &ast.CallExpr{
-			Fun:  pseudoIdent,
-			Args: inputs,
-		},
-	}
+
+	// Is the last argument variadic?
 	if list := fn.Type.Params.List; len(list) > 0 {
-		// Check if the last argument is variadic. If so we'll need to output ellipses in our call.
 		if _, ok := list[len(list)-1].Type.(*ast.Ellipsis); ok {
-			// Set the Ellipsis field of the CallExpr to something nonzero.
-			// I'm pretty surprised this works. I thought we would need to compute the real Pos value.
-			innerCall.(*ast.ExprStmt).X.(*ast.CallExpr).Ellipsis = token.Pos(1)
-		}
-	}
-	if len(outputs) > 0 {
-		innerCall = &ast.AssignStmt{
-			Lhs: outputs,
-			Tok: token.ASSIGN,
-			Rhs: []ast.Expr{innerCall.(*ast.ExprStmt).X},
+			ellipsis = "..."
 		}
 	}
 
-	// Wrap the inner call in a func() that we can pass to EnterFunc.
-	var f ast.Expr = &ast.FuncLit{
-		Type: &ast.FuncType{Params: &ast.FieldList{}},
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				innerCall}}}
-	// But if there are no arguments to the function, we don't need to wrap it.
-	// We can just pass the function itself.
-	if len(outputs) == 0 && len(inputs) == 0 {
-		f = pseudoIdent
+	// If there are no inputs or outputs, we can skip the function literal wrapper.
+	if len(inputs) == 0 && len(outputs) == 0 {
+		return astPrintf(`
+		{{var receiver %s}}
+		ctx, ok := godebug.EnterFunc(%s)
+		if !ok {
+			return
+		}`,
+			recvType, pseudoIdent)
 	}
 
-	return append(result, []ast.Stmt{
-		&ast.AssignStmt{
-			Lhs: []ast.Expr{ast.NewIdent(idents.ctx), ast.NewIdent(idents.ok)},
-			Tok: token.DEFINE,
-			Rhs: []ast.Expr{
-				newCall(idents.godebug, "EnterFunc", f)}},
-		&ast.IfStmt{
-			Cond: &ast.UnaryExpr{
-				Op: token.NOT,
-				X:  ast.NewIdent(idents.ok),
-			},
-			Body: &ast.BlockStmt{
-				List: []ast.Stmt{
-					&ast.ReturnStmt{
-						Results: outputs}}}}}...,
-	)
+	return astPrintf(`
+			{{var receiver %s}}
+			ctx, ok := godebug.EnterFunc(func() {
+				{{%s =}} %s(%s%s)
+			})
+			if !ok {
+				return %s
+			}`,
+		recvType, outputs, pseudoIdent, inputs, ellipsis, outputs)
 }
 
 func (v *visitor) finalizeNode() {
@@ -410,23 +383,17 @@ func (v *visitor) finalizeNode() {
 		newBody := &ast.BlockStmt{}
 		newBody.List = append(decl,
 			&ast.DeclStmt{
-				Decl: &ast.GenDecl{
-					Tok: token.VAR,
-					Specs: []ast.Spec{
-						&ast.ValueSpec{
-							Names: []*ast.Ident{ast.NewIdent(idents.ctx)},
-							Type:  &ast.StarExpr{X: newSel(idents.godebug, "Context")}}}}},
+				Decl: varDecl(&ast.ValueSpec{
+					Names: []*ast.Ident{ast.NewIdent(idents.ctx)},
+					Type:  &ast.StarExpr{X: newSel(idents.godebug, "Context")}})},
 			&ast.AssignStmt{
 				Lhs: []ast.Expr{ast.NewIdent(fn)},
 				Tok: token.DEFINE,
 				Rhs: []ast.Expr{wrappedFuncLit}},
 			&ast.DeclStmt{
-				Decl: &ast.GenDecl{
-					Tok: token.VAR,
-					Specs: []ast.Spec{
-						&ast.ValueSpec{
-							Names: []*ast.Ident{ast.NewIdent(idents.ok)},
-							Type:  ast.NewIdent("bool")}}}},
+				Decl: varDecl(&ast.ValueSpec{
+					Names: []*ast.Ident{ast.NewIdent(idents.ok)},
+					Type:  ast.NewIdent("bool")})},
 			&ast.AssignStmt{
 				Lhs: []ast.Expr{ast.NewIdent(idents.ctx), ast.NewIdent(idents.ok)},
 				Tok: token.ASSIGN,
@@ -484,15 +451,10 @@ func (v *visitor) finalizeNode() {
 			newDecls = append(newDecls, i.Decls[0])
 			i.Decls = i.Decls[1:]
 		}
-		newDecls = append(newDecls, &ast.GenDecl{
-			Tok: token.VAR,
-			Specs: []ast.Spec{
-				&ast.ValueSpec{
-					Names:  []*ast.Ident{ast.NewIdent(idents.fileScope)},
-					Values: []ast.Expr{newCall(idents.godebug, "EnteringNewScope")},
-				},
-			},
-		})
+		newDecls = append(newDecls, varDecl(&ast.ValueSpec{
+			Names:  []*ast.Ident{ast.NewIdent(idents.fileScope)},
+			Values: []ast.Expr{newCall(idents.godebug, "EnteringNewScope")},
+		}))
 		i.Decls = append(newDecls, i.Decls...)
 	}
 }
