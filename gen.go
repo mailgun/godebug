@@ -203,35 +203,26 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 }
 
 func (v *visitor) ifElseCondWrap(cond ast.Expr, text string) ast.Expr {
-	return &ast.CallExpr{
-		Fun: &ast.FuncLit{
-			Type: &ast.FuncType{
-				Results: &ast.FieldList{
-					List: []*ast.Field{{
-						Type: ast.NewIdent("bool")}}}},
-			Body: &ast.BlockStmt{
-				List: []ast.Stmt{
-					newCallStmt(idents.godebug, "ElseIfExpr", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)}),
-					&ast.ReturnStmt{Results: []ast.Expr{cond}}}}}}
+	return astPrintfExpr(`func() bool {
+		godebug.ElseIfExpr(ctx, %s, "%s")
+		return %s
+	}()
+	`, v.scopeVar, text, cond)
 }
 
 func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
-	results := &ast.FieldList{List: make([]*ast.Field, len(vars))}
+	results := make([]string, len(vars))
 	for i, expr := range vars {
 		ident, ok := expr.(*ast.Ident)
 		if !ok {
 			panic(fmt.Sprintf("Unsupported type in if statement initializer: %T. Sorry! Let me (jeremy@mailgunhq.com) know about this and I'll fix it.", expr))
 		}
-		results.List[i] = &ast.Field{Type: ast.NewIdent(types.TypeString(pkg, defs[ident].Type()))}
+		results[i] = types.TypeString(pkg, defs[ident].Type())
 	}
-	return &ast.CallExpr{Fun: &ast.FuncLit{
-		Type: &ast.FuncType{
-			Results: results,
-		},
-		Body: &ast.BlockStmt{
-			List: []ast.Stmt{
-				newCallStmt(idents.godebug, "ElseIfSimpleStmt", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)}),
-				&ast.ReturnStmt{Results: vals}}}}}
+	return astPrintfExpr(`func() (%s) {
+		godebug.ElseIfSimpleStmt(ctx, %s, "%s")
+		return %s
+	}()`, strings.Join(results, ", "), v.scopeVar, text, vals)
 }
 
 var blank = ast.NewIdent("_")
@@ -327,88 +318,39 @@ func (v *visitor) finalizeNode() {
 
 		i.Body.List = append(prepend, i.Body.List...)
 	case *ast.FuncLit:
-		// Transform the function literal into this form:
-		//   func(<inputs>) <outputs> {
-		//       <var statement for unnamed outputs>
-		//       var ctx *godebug.Context
-		//       fn := func() {
-		//           <outputs> = func() <outputs> {
-		//               ... function body here
-		//           }()
-		//       }
-		//       var ok bool
-		//       ctx, ok = godebug.EnterFunc(fn)
-		//       if ok {
-		//           fn()
-		//       }
-		//       godebug.ExitFunc()
-		//       return <outputs>
-		//   }
-		//
-		//   OR
-		//
-		//   func(<inputs>) {
-		//       var ctx *godebug.Context
-		//       fn := func() {
-		//           ... function body here
-		//       }
-		//       var ok bool
-		//       ctx, ok = godebug.EnterFunc(fn)
-		//       if ok {
-		//           fn()
-		//       }
-		//       godebug.ExitFunc()
-		//   }
 		fn := createConflictFreeName("fn", i.Type, false)
 		decl, outputs := inputsOrOutputs(i.Type.Results, idents.result)
-		wrappedFuncLit := &ast.FuncLit{
-			Type: &ast.FuncType{
-				Params:  &ast.FieldList{},
-				Results: i.Type.Results,
-			},
-			Body: i.Body,
-		}
-		if len(outputs) > 0 {
-			wrappedFuncLit = &ast.FuncLit{
-				Type: &ast.FuncType{Params: &ast.FieldList{}},
-				Body: &ast.BlockStmt{
-					List: []ast.Stmt{
-						&ast.AssignStmt{
-							Lhs: outputs,
-							Tok: token.ASSIGN,
-							Rhs: []ast.Expr{
-								&ast.CallExpr{
-									Fun: wrappedFuncLit}}}}}}
-		}
 		newBody := &ast.BlockStmt{}
-		newBody.List = append(decl,
-			&ast.DeclStmt{
-				Decl: varDecl(&ast.ValueSpec{
-					Names: []*ast.Ident{ast.NewIdent(idents.ctx)},
-					Type:  &ast.StarExpr{X: newSel(idents.godebug, "Context")}})},
-			&ast.AssignStmt{
-				Lhs: []ast.Expr{ast.NewIdent(fn)},
-				Tok: token.DEFINE,
-				Rhs: []ast.Expr{wrappedFuncLit}},
-			&ast.DeclStmt{
-				Decl: varDecl(&ast.ValueSpec{
-					Names: []*ast.Ident{ast.NewIdent(idents.ok)},
-					Type:  ast.NewIdent("bool")})},
-			&ast.AssignStmt{
-				Lhs: []ast.Expr{ast.NewIdent(idents.ctx), ast.NewIdent(idents.ok)},
-				Tok: token.ASSIGN,
-				Rhs: []ast.Expr{newCall(idents.godebug, "EnterFunc", ast.NewIdent(fn))}},
-			&ast.IfStmt{
-				Cond: ast.NewIdent(idents.ok),
-				Body: &ast.BlockStmt{
-					List: []ast.Stmt{
-						&ast.ExprStmt{
-							X: &ast.CallExpr{
-								Fun: ast.NewIdent(fn)}}}}},
-			newCallStmt(idents.godebug, "ExitFunc"),
-		)
 		if len(outputs) > 0 {
-			newBody.List = append(newBody.List, &ast.ReturnStmt{Results: outputs})
+			newBody.List = astPrintf(`
+				{{%s}}
+				var ctx *godebug.Context
+				%s := func() {
+					%s = func() (%s) {
+						%s
+					}()
+				}
+				var ok bool
+				ctx, ok = godebug.EnterFunc(%s)
+				if ok {
+					%s()
+				}
+				godebug.ExitFunc()
+				return %s
+			`, decl, fn, outputs, i.Type.Results, i.Body.List, fn, fn, outputs)
+		} else {
+			newBody.List = astPrintf(`
+				var ctx *godebug.Context
+				%s := func() {
+					%s
+				}
+				var ok bool
+				ctx, ok = godebug.EnterFunc(%s)
+				if ok {
+					%s()
+				}
+				godebug.ExitFunc()
+				`, fn, i.Body.List, fn, fn)
 		}
 		i.Body = newBody
 	case *ast.BlockStmt:

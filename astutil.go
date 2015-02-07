@@ -25,6 +25,8 @@ func isEmpty(i interface{}) bool {
 		return x == ""
 	case []ast.Expr:
 		return len(x) == 0
+	case []ast.Stmt:
+		return len(x) == 0
 	case nil:
 		return true
 	case ast.Node:
@@ -61,6 +63,10 @@ func replaceIdents(format string) string {
 	return r.Replace(format)
 }
 
+func astPrintfExpr(format string, a ...interface{}) ast.Expr {
+	return astPrintf("_ = "+format, a...)[0].(*ast.AssignStmt).Rhs[0]
+}
+
 // not thread safe.
 func astPrintf(format string, a ...interface{}) []ast.Stmt {
 	format = replaceIdents(format)
@@ -85,7 +91,14 @@ func main() {`
 
 func fprint(w io.Writer, a interface{}) error {
 	switch x := a.(type) {
-	case ast.Node:
+	case *ast.FieldList:
+		// printer.Fprint does not support this type. Hack around it.
+		var buf bytes.Buffer
+		printer.Fprint(&buf, token.NewFileSet(), &ast.FuncLit{Type: &ast.FuncType{Params: x}})
+		b := buf.Bytes()
+		_, err := w.Write(b[len("func(") : len(b)-len(")")])
+		return err
+	case ast.Node, []ast.Decl, []ast.Stmt:
 		return printer.Fprint(w, token.NewFileSet(), x)
 	case []ast.Expr:
 		i := 0
