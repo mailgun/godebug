@@ -191,6 +191,11 @@ type visitor struct {
 	scopeVar             string
 	blockVars            []*ast.Ident
 	createdExplicitScope bool
+	loopState
+}
+
+type loopState struct {
+	newIdents []*ast.Ident
 }
 
 func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
@@ -198,8 +203,15 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 		return
 	}
 	text := getText(pos, body.Lbrace)
-	call := newCall(idents.godebug, "SLine", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
-	body.List = append(body.List, &ast.ExprStmt{X: call})
+	if len(v.newIdents) == 0 {
+		call := newCall(idents.godebug, "SLine", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
+		body.List = append(body.List, &ast.ExprStmt{X: call})
+	} else {
+		body.List = append([]ast.Stmt{
+			astPrintf(`godebug.SLine(ctx, scope, "%s")`, text)[0],
+			newDeclareCall(idents.scope, v.newIdents),
+		}, body.List...)
+	}
 }
 
 func (v *visitor) ifElseCondWrap(cond ast.Expr, text string) ast.Expr {
@@ -298,6 +310,44 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) (stmts []ast.Stm
 				return %s
 			}`,
 		recvType, outputs, pseudoIdent, inputs, ellipsis, outputs)
+}
+
+func newIdentsInRange(_range *ast.RangeStmt) (idents []*ast.Ident) {
+	if _range.Tok != token.DEFINE {
+		return
+	}
+	if i, ok := _range.Key.(*ast.Ident); ok {
+		idents = append(idents, i)
+	}
+	if i, ok := _range.Value.(*ast.Ident); ok {
+		idents = append(idents, i)
+	}
+	return
+}
+
+func newIdentsInFor(_for *ast.ForStmt) (idents []*ast.Ident) {
+	if stmt, ok := _for.Init.(*ast.AssignStmt); ok {
+		idents = make([]*ast.Ident, len(stmt.Lhs))
+		for i, expr := range stmt.Lhs {
+			if ident, ok := expr.(*ast.Ident); ok {
+				idents[i] = ident
+			}
+		}
+	}
+	return
+}
+
+func (v *visitor) wrapLoop(node ast.Stmt, body *ast.BlockStmt) (block *ast.BlockStmt, loop ast.Stmt) {
+	text := getText(node.Pos(), body.Lbrace)
+	block = astPrintf(`
+		{
+			scope := %s.EnteringNewChildScope()
+			_ = scope // placeholder
+			godebug.SLine(ctx, scope, %s)
+		}`, v.scopeVar, strconv.Quote(text))[0].(*ast.BlockStmt)
+	block.List[1] = node
+	loop = node
+	return
 }
 
 func (v *visitor) finalizeNode() {
@@ -432,19 +482,35 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		v.stmtBuf = append(v.stmtBuf, i.(ast.Stmt))
 		return &visitor{context: node, scopeVar: v.scopeVar}
 	}
+
+	// The code below is about inserting debug calls. Skip it if we're not in a context where that makes sense.
 	if v.stmtBuf == nil {
 		return &visitor{context: node, scopeVar: v.scopeVar}
 	}
+
+	// If this is a loop that declares identifiers, wrap it in a block statement so we can declare identifiers at the right time.
+	switch i := node.(type) {
+	case *ast.ForStmt:
+		newIdents := newIdentsInFor(i)
+		if len(newIdents) > 0 {
+			block, loop := v.wrapLoop(i, i.Body)
+			v.stmtBuf = append(v.stmtBuf, block)
+			return &visitor{context: loop, scopeVar: v.scopeVar, loopState: loopState{newIdents: newIdents}}
+		}
+	case *ast.RangeStmt:
+		newIdents := newIdentsInRange(i)
+		if len(newIdents) > 0 {
+			block, loop := v.wrapLoop(i, i.Body)
+			v.stmtBuf = append(v.stmtBuf, block)
+			return &visitor{context: loop, scopeVar: v.scopeVar, loopState: loopState{newIdents: newIdents}}
+		}
+	}
+
 	if !isSetTraceCall(node) {
 		v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar)))
 	}
-	var newIdents []*ast.Ident
-	switch i := node.(type) {
-	case *ast.DeclStmt:
-		newIdents = listNewIdentsFromDecl(i.Decl.(*ast.GenDecl))
-	case *ast.AssignStmt:
-		newIdents = listNewIdentsFromAssign(i)
-	}
+
+	// Copy the statement into the new block we are building.
 	if stmt, ok := node.(ast.Stmt); ok {
 		if isSetTraceCall(node) {
 			// Rewrite godebug.SetTrace() as godebug.SetTraceGen(ctx)
@@ -454,12 +520,22 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		}
 		v.stmtBuf = append(v.stmtBuf, stmt)
 	}
+
+	// If this statement declared new identifiers, output a Declare call.
+	var newIdents []*ast.Ident
+	switch i := node.(type) {
+	case *ast.DeclStmt:
+		newIdents = listNewIdentsFromDecl(i.Decl.(*ast.GenDecl))
+	case *ast.AssignStmt:
+		newIdents = listNewIdentsFromAssign(i)
+	}
 	if len(newIdents) > 0 {
 		if !v.createdExplicitScope {
 			v.createScope()
 		}
 		v.stmtBuf = append(v.stmtBuf, newDeclareCall("", newIdents))
 	}
+
 	return &visitor{context: node, scopeVar: v.scopeVar}
 }
 

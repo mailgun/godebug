@@ -22,7 +22,7 @@ Command not recognized, sorry! You typed: "i"
 (godebug) x
 0
 (godebug) i
-Command not recognized, sorry! You typed: "i"
+0
 (godebug) m
 4
 (godebug) n
@@ -30,7 +30,7 @@ Command not recognized, sorry! You typed: "i"
 (godebug) x
 4
 (godebug) p i
-Command not recognized, sorry! You typed: "p i"
+1
 (godebug) p m
 4
 (godebug) p n
@@ -44,19 +44,19 @@ Command not recognized, sorry! You typed: "p i"
 (godebug) x
 8
 (godebug) p i
-Command not recognized, sorry! You typed: "p i"
+2
 (godebug) n
 -> x = add(x, m)
 (godebug) n
 -> for i := 0; i < m; i++ {
 (godebug) i
-Command not recognized, sorry! You typed: "i"
+3
 (godebug) n
 -> x = add(x, m)
 (godebug) n
 -> for i := 0; i < m; i++ {
 (godebug) i
-Command not recognized, sorry! You typed: "i"
+4
 (godebug) m
 4
 (godebug) x

@@ -79,10 +79,14 @@ func mul(n, m int) int {
 	godebug.Line(ctx, scope)
 	var x int
 	scope.Declare("x", &x)
-	godebug.Line(ctx, scope)
-	for i := 0; i < m; i++ {
-		godebug.Line(ctx, scope)
-		x = add(x, m)
+	{
+		scope := scope.EnteringNewChildScope()
+		for i := 0; i < m; i++ {
+			godebug.SLine(ctx, scope, "for i := 0; i < m; i++ {")
+			scope.Declare("i", &i)
+			godebug.Line(ctx, scope)
+			x = add(x, m)
+		}
 		godebug.SLine(ctx, scope, "for i := 0; i < m; i++ {")
 	}
 	godebug.Line(ctx, scope)
