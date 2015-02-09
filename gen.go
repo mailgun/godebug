@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"go/ast"
 	"go/printer"
 	"go/token"
+	"io"
 	"os"
 	"path"
 	"reflect"
@@ -38,6 +40,25 @@ func Usage() {
 	flag.PrintDefaults()
 	fmt.Fprint(os.Stderr, loader.FromArgsUsage)
 	os.Exit(2)
+}
+
+type blankLineStripper struct {
+	io.Writer
+	lastWasNewline bool
+	buf            bytes.Buffer
+}
+
+func (w *blankLineStripper) Write(p []byte) (n int, err error) {
+	w.buf.Reset()
+	for _, b := range p {
+		if !(w.lastWasNewline && b == '\n') {
+			w.buf.WriteByte(b)
+		}
+		w.lastWasNewline = b == '\n'
+	}
+	n = len(p) - len(w.buf.Bytes())
+	nn, err := w.Writer.Write(w.buf.Bytes())
+	return n + nn, err
 }
 
 func main() {
@@ -87,7 +108,7 @@ func main() {
 			}
 			astutil.AddNamedImport(fs, f, importName, "github.com/mailgun/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-			out := os.Stdout
+			var out io.Writer = os.Stdout
 			if *w {
 				file, err := os.Create(fs.Position(f.Pos()).Filename)
 				if err != nil {
@@ -95,7 +116,7 @@ func main() {
 					os.Exit(2)
 				}
 				defer file.Close()
-				out = file
+				out = &blankLineStripper{Writer: file}
 			}
 			cfg.Fprint(out, fs, f)
 		}
