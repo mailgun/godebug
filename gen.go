@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -8,6 +9,7 @@ import (
 	"go/token"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 	"unicode"
@@ -22,9 +24,10 @@ import (
 var w = flag.Bool("w", false, "write result to (source) file instead of stdout")
 
 var (
-	defs map[*ast.Ident]types.Object
-	fs   *token.FileSet
-	pkg  *types.Package
+	defs   map[*ast.Ident]types.Object
+	_types map[ast.Expr]types.TypeAndValue
+	fs     *token.FileSet
+	pkg    *types.Package
 )
 
 // Usage is a replacement usage function for the flags package.
@@ -60,6 +63,7 @@ func main() {
 	fs = prog.Fset
 	for _, pkgInfo := range prog.InitialPackages() {
 		defs = pkgInfo.Defs
+		_types = pkgInfo.Types
 		pkg = pkgInfo.Pkg
 		for _, f := range pkgInfo.Files {
 			generateGodebugIdentifiers(f)
@@ -145,6 +149,20 @@ func getText(start, end token.Pos) (text string) {
 	return
 }
 
+func getTextLine(start token.Pos) (text string) {
+	f, err := os.Open(fs.Position(start).Filename)
+	if err != nil {
+		return "<< Error reading source >>"
+	}
+	defer f.Close()
+	f.Seek(int64(fs.Position(start).Offset), 0)
+	scanner := bufio.NewScanner(f)
+	if !scanner.Scan() {
+		return "<< Error reading source >>"
+	}
+	return scanner.Text()
+}
+
 func isNewIdent(ident *ast.Ident) bool {
 	return ident.Name != "_" && defs[ident] != nil
 }
@@ -191,11 +209,41 @@ type visitor struct {
 	scopeVar             string
 	blockVars            []*ast.Ident
 	createdExplicitScope bool
+	hasRecovers          bool
 	loopState
 }
 
 type loopState struct {
 	newIdents []*ast.Ident
+}
+
+func rewriteFnWithRecovers(body *ast.BlockStmt) (wrapped *ast.FuncLit) {
+	// The formatting of the channel declarations is ugly, but it's presented this way here to show how it will look in the actual output.
+	// As far as I know, I would need to set the token.Pos values for the left and right braces of the struct and interface type literals
+	// in order to get them on one line, but I don't think I can do that without computing all of the other token.Pos values for everything
+	// else I generate.
+	newBody := astPrintf(`
+		quit := make(chan struct {
+		})
+		_godebug_recover_chan_ := make(chan chan interface {
+		})
+		rr := make(chan interface {
+		})
+		godebug.Go(func() {
+		})
+		for {
+			select {
+			case <-quit:
+				return
+			case _godebug_recover_chan_ <- rr:
+				rr <- recover()
+			}
+		}`)
+	wrapped = newBody[3].(*ast.ExprStmt).X.(*ast.CallExpr).Args[0].(*ast.FuncLit)
+	wrapped.Body.List = body.List
+	body.List = newBody
+	body.Rbrace = token.NoPos // without this I was getting extra whitespace at the end of the function
+	return wrapped
 }
 
 func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
@@ -312,6 +360,13 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) (stmts []ast.Stm
 		recvType, outputs, pseudoIdent, inputs, ellipsis, outputs)
 }
 
+func newIdentsInSimpleStmt(stmt ast.Stmt) (idents []*ast.Ident) {
+	if assign, ok := stmt.(*ast.AssignStmt); ok {
+		idents = listNewIdentsFromAssign(assign)
+	}
+	return
+}
+
 func newIdentsInRange(_range *ast.RangeStmt) (idents []*ast.Ident) {
 	if _range.Tok != token.DEFINE {
 		return
@@ -321,18 +376,6 @@ func newIdentsInRange(_range *ast.RangeStmt) (idents []*ast.Ident) {
 	}
 	if i, ok := _range.Value.(*ast.Ident); ok {
 		idents = append(idents, i)
-	}
-	return
-}
-
-func newIdentsInFor(_for *ast.ForStmt) (idents []*ast.Ident) {
-	if stmt, ok := _for.Init.(*ast.AssignStmt); ok {
-		idents = make([]*ast.Ident, len(stmt.Lhs))
-		for i, expr := range stmt.Lhs {
-			if ident, ok := expr.(*ast.Ident); ok {
-				idents[i] = ident
-			}
-		}
 	}
 	return
 }
@@ -370,9 +413,14 @@ func (v *visitor) finalizeNode() {
 	case *ast.FuncLit:
 		fn := createConflictFreeName("fn", i.Type, false)
 		decl, outputs := inputsOrOutputs(i.Type.Results, idents.result)
+		deferCloseQuit := ""
+		if v.hasRecovers {
+			deferCloseQuit = "defer close(quit)"
+		}
 		newBody := &ast.BlockStmt{}
 		if len(outputs) > 0 {
 			newBody.List = astPrintf(`
+				{{%s}}
 				{{%s}}
 				var ctx *godebug.Context
 				%s := func() {
@@ -387,9 +435,10 @@ func (v *visitor) finalizeNode() {
 				}
 				godebug.ExitFunc()
 				return %s
-			`, decl, fn, outputs, i.Type.Results, i.Body.List, fn, fn, outputs)
+			`, deferCloseQuit, decl, fn, outputs, i.Type.Results, i.Body.List, fn, fn, outputs)
 		} else {
 			newBody.List = astPrintf(`
+				{{%s}}
 				var ctx *godebug.Context
 				%s := func() {
 					%s
@@ -400,7 +449,7 @@ func (v *visitor) finalizeNode() {
 					%s()
 				}
 				godebug.ExitFunc()
-				`, fn, i.Body.List, fn, fn)
+				`, deferCloseQuit, fn, i.Body.List, fn, fn)
 		}
 		i.Body = newBody
 	case *ast.BlockStmt:
@@ -453,19 +502,33 @@ func (v *visitor) finalizeNode() {
 
 func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	switch i := node.(type) {
+
 	case nil:
 		v.finalizeNode()
 		return nil
+
 	case *ast.FuncDecl:
 		// Don't output debugging calls for init functions or empty functions.
 		if i.Name.Name == "init" && i.Recv == nil || i.Body == nil || len(i.Body.List) == 0 {
 			return nil
 		}
-		// Add Declare() call first thing in the function for any variables bound by the function signature.
+		// If there is a call to recover() anywhere in this function, it needs some fairly elaborate treatment.
+		if didRewrite := rewriteRecoversIn(i.Body); didRewrite {
+			wrappedFn := rewriteFnWithRecovers(i.Body)
+			ast.Walk(&visitor{context: v.context, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: idents.fileScope, hasRecovers: true}, wrappedFn)
+			return nil
+		}
 		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: idents.fileScope}
+
 	case *ast.FuncLit:
-		// Add Declare() call first thing in the function for any variables bound by the function signature.
-		return &visitor{context: node, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar}
+		// If there is a call to recover() anywhere in this function, it needs some fairly elaborate treatment.
+		if didRewrite := rewriteRecoversIn(i.Body); didRewrite {
+			wrappedFn := rewriteFnWithRecovers(i.Body)
+			ast.Walk(&visitor{context: v.context, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar, hasRecovers: true}, wrappedFn)
+			return nil
+		}
+		return &visitor{context: node, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar, hasRecovers: v.hasRecovers}
+
 	case *ast.BlockStmt:
 		if v.stmtBuf != nil {
 			v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar)))
@@ -477,10 +540,12 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			w.stmtBuf = append(w.stmtBuf, newDeclareCall(w.scopeVar, v.blockVars))
 		}
 		return w
+
 	// TODO: Wrap these clauses the same way as if-else clauses.
 	case *ast.CommClause, *ast.CaseClause:
 		v.stmtBuf = append(v.stmtBuf, i.(ast.Stmt))
 		return &visitor{context: node, scopeVar: v.scopeVar}
+
 	}
 
 	// The code below is about inserting debug calls. Skip it if we're not in a context where that makes sense.
@@ -491,7 +556,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	// If this is a loop that declares identifiers, wrap it in a block statement so we can declare identifiers at the right time.
 	switch i := node.(type) {
 	case *ast.ForStmt:
-		newIdents := newIdentsInFor(i)
+		newIdents := newIdentsInSimpleStmt(i.Init)
 		if len(newIdents) > 0 {
 			block, loop := v.wrapLoop(i, i.Body)
 			v.stmtBuf = append(v.stmtBuf, block)
@@ -536,7 +601,17 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		v.stmtBuf = append(v.stmtBuf, newDeclareCall("", newIdents))
 	}
 
-	return &visitor{context: node, scopeVar: v.scopeVar}
+	// If this is a defer statement, defer another function right after it that will let the user step into it if they wish.
+	if def, ok := node.(*ast.DeferStmt); ok {
+		text := getTextLine(def.Pos())
+		v.stmtBuf = append(v.stmtBuf, astPrintf(`defer godebug.SLine(ctx, %s, "<Running deferred function>: %s")`, v.scopeVar, text)[0])
+	}
+
+	w := &visitor{context: node, scopeVar: v.scopeVar}
+	if _if, ok := node.(*ast.IfStmt); ok {
+		w.blockVars = newIdentsInSimpleStmt(_if.Init)
+	}
+	return w
 }
 
 func getIdents(lists ...*ast.FieldList) (idents []*ast.Ident) {
@@ -663,4 +738,52 @@ func (v *nameVisitor) Visit(node ast.Node) ast.Visitor {
 		}
 	}
 	return v
+}
+
+func rewriteRecoversIn(block *ast.BlockStmt) bool {
+	var result bool
+	visitor := recoverVisitor{nil, &result}
+	ast.Walk(&visitor, block)
+	return result
+}
+
+type recoverVisitor struct {
+	parent     ast.Node
+	didRewrite *bool
+}
+
+func (v *recoverVisitor) Visit(node ast.Node) ast.Visitor {
+	switch x := node.(type) {
+	case *ast.CallExpr:
+		if ident, ok := x.Fun.(*ast.Ident); ok {
+			if ident.Name == "recover" && _types[x.Fun].IsBuiltin() {
+				rewriteRecoverCall(v.parent, node)
+				*v.didRewrite = true
+				return nil
+			}
+		}
+	case *ast.FuncLit:
+		// Ignore recover calls in nested function literals.
+		return nil
+	}
+	return &recoverVisitor{node, v.didRewrite}
+}
+
+func rewriteRecoverCall(parent, _recover ast.Node) {
+	rewritten := astPrintfExpr("<-(<-_godebug_recover_chan_)")
+	v := reflect.ValueOf(parent).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		if f.Interface() == _recover {
+			f.Set(reflect.ValueOf(rewritten))
+			return
+		}
+		if f.Kind() == reflect.Slice {
+			for i := 0; i < f.Len(); i++ {
+				if f.Index(i).Interface() == _recover {
+					f.Index(i).Set(reflect.ValueOf(rewritten))
+				}
+			}
+		}
+	}
 }

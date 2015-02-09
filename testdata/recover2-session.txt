@@ -1,0 +1,79 @@
+-> doPanic(r1)
+(godebug) s
+-> defer recoverer()
+(godebug) n
+-> panic("doPanic: panic")
+(godebug) n
+-> <Running deferred function>: defer recoverer()
+(godebug) s
+-> recover()
+(godebug) n
+-> doPanic(r2)
+(godebug) s
+-> defer recoverer()
+(godebug) n
+-> panic("doPanic: panic")
+(godebug) n
+-> <Running deferred function>: defer recoverer()
+(godebug) s
+-> if r := recover(); r == nil {
+(godebug) p r
+Command not recognized, sorry! You typed: "p r"
+(godebug) n
+-> if r := recover(); r != nil {
+(godebug) p r
+Command not recognized, sorry! You typed: "p r"
+(godebug) n
+-> doPanic(r3)
+(godebug) s
+-> defer recoverer()
+(godebug) n
+-> panic("doPanic: panic")
+(godebug) n
+-> <Running deferred function>: defer recoverer()
+(godebug) s
+-> recover()
+(godebug) n
+-> doPanic(r4)
+(godebug) s
+-> defer recoverer()
+(godebug) n
+-> panic("doPanic: panic")
+(godebug) n
+-> <Running deferred function>: defer recoverer()
+(godebug) s
+-> if r := recover(); r == nil {
+(godebug) p r
+Command not recognized, sorry! You typed: "p r"
+(godebug) n
+-> if r := recover(); r != nil {
+(godebug) p r
+Command not recognized, sorry! You typed: "p r"
+(godebug) n
+-> doNestedRecover(r1)
+(godebug) s
+-> defer func() {
+(godebug) n
+-> panic("doNestedRecover: panic")
+(godebug) n
+-> <Running deferred function>: defer func() {
+(godebug) s
+-> recoverer()
+(godebug) n
+-> if r := recover(); r == nil {
+(godebug) n
+-> doNestedRecover(r3)
+(godebug) s
+-> defer func() {
+(godebug) n
+-> panic("doNestedRecover: panic")
+(godebug) n
+-> <Running deferred function>: defer func() {
+(godebug) s
+-> recoverer()
+(godebug) s
+-> recover()
+(godebug) n
+-> if r := recover(); r == nil {
+(godebug) n
+

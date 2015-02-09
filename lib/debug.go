@@ -267,7 +267,9 @@ func parseFile(file string) []string {
 	var lines []string
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		lines = append(lines, string(bytes.TrimSpace(scanner.Bytes())))
+		line := string(bytes.TrimSpace(scanner.Bytes()))
+		line = strings.Replace(line, "<-(<-_godebug_recover_chan_)", "recover()", -1)
+		lines = append(lines, line)
 	}
 	if err = scanner.Err(); err != nil {
 		fmt.Println("Error reading current source file:", err)

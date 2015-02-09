@@ -16,6 +16,8 @@ import (
 	and assume that SetValues is not called recursively.
 */
 
+var Go = gls.Go
+
 type contextManager interface {
 	GetValue(key interface{}) (value interface{}, ok bool)
 	SetValues(newValues gls.Values, contextCall func())
