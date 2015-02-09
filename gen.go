@@ -256,7 +256,7 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 		body.List = append(body.List, &ast.ExprStmt{X: call})
 	} else {
 		body.List = append([]ast.Stmt{
-			astPrintf(`godebug.SLine(ctx, scope, "%s")`, text)[0],
+			astPrintf(`godebug.SLine(ctx, scope, %s)`, strconv.Quote(text))[0],
 			newDeclareCall(idents.scope, v.newIdents),
 		}, body.List...)
 	}
