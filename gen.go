@@ -371,10 +371,10 @@ func newIdentsInRange(_range *ast.RangeStmt) (idents []*ast.Ident) {
 	if _range.Tok != token.DEFINE {
 		return
 	}
-	if i, ok := _range.Key.(*ast.Ident); ok {
+	if i, ok := _range.Key.(*ast.Ident); ok && isNewIdent(i) {
 		idents = append(idents, i)
 	}
-	if i, ok := _range.Value.(*ast.Ident); ok {
+	if i, ok := _range.Value.(*ast.Ident); ok && isNewIdent(i) {
 		idents = append(idents, i)
 	}
 	return

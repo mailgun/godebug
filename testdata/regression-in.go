@@ -1,7 +1,7 @@
 package main
 
 func main() {
-	for s := range []string{"foo"} {
+	for _, s := range []string{"foo"} {
 		_ = s
 	}
 }
