@@ -110,6 +110,23 @@ func EnterFunc(fn func()) (ctx *Context, proceed bool) {
 	return &Context{goroutine: val.(uint32)}, true
 }
 
+// EnterFuncLit is like EnterFunc, but intended for function literals. The passed callback takes a *Context rather than no input.
+func EnterFuncLit(fn func(*Context)) (ctx *Context, proceed bool) {
+	val, ok := context.GetValue(goroutineKey)
+	if !ok {
+		id := uint32(ids.Acquire())
+		defer ids.Release(uint(id))
+		context.SetValues(gls.Values{goroutineKey: id}, func() {
+			fn(&Context{goroutine: id})
+		})
+		return nil, false
+	}
+	if val.(uint32) == atomic.LoadUint32(&currentGoroutine) && currentState != run {
+		currentDepth++
+	}
+	return &Context{goroutine: val.(uint32)}, true
+}
+
 // ExitFunc marks the end of a function.
 func ExitFunc() {
 	if atomic.LoadInt32(&currentState) == run {

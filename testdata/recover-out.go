@@ -17,15 +17,12 @@ func r1() {
 	})
 	godebug.Go(func() {
 		defer close(quit)
-		var ctx *godebug.Context
-		fn := func() {
+		fn := func(ctx *godebug.Context) {
 			godebug.Line(ctx, recover_in_goScope)
 			<-(<-_godebug_recover_chan_)
 		}
-		var ok bool
-		ctx, ok = godebug.EnterFunc(fn)
-		if ok {
-			fn()
+		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			fn(ctx)
 		}
 		godebug.ExitFunc()
 	})
@@ -48,8 +45,7 @@ func r2() {
 	})
 	godebug.Go(func() {
 		defer close(quit)
-		var ctx *godebug.Context
-		fn := func() {
+		fn := func(ctx *godebug.Context) {
 			godebug.Line(ctx, recover_in_goScope)
 			if r := <-(<-_godebug_recover_chan_); r == nil {
 				scope := recover_in_goScope.EnteringNewChildScope()
@@ -65,10 +61,8 @@ func r2() {
 				log.Fatal("r2: Second recover should return nil.")
 			}
 		}
-		var ok bool
-		ctx, ok = godebug.EnterFunc(fn)
-		if ok {
-			fn()
+		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			fn(ctx)
 		}
 		godebug.ExitFunc()
 	})
@@ -91,15 +85,12 @@ var r3 = func() {
 	})
 	godebug.Go(func() {
 		defer close(quit)
-		var ctx *godebug.Context
-		fn := func() {
+		fn := func(ctx *godebug.Context) {
 			godebug.Line(ctx, recover_in_goScope)
 			<-(<-_godebug_recover_chan_)
 		}
-		var ok bool
-		ctx, ok = godebug.EnterFunc(fn)
-		if ok {
-			fn()
+		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			fn(ctx)
 		}
 		godebug.ExitFunc()
 	})
@@ -122,8 +113,7 @@ var r4 = func() {
 	})
 	godebug.Go(func() {
 		defer close(quit)
-		var ctx *godebug.Context
-		fn := func() {
+		fn := func(ctx *godebug.Context) {
 			godebug.Line(ctx, recover_in_goScope)
 			if r := <-(<-_godebug_recover_chan_); r == nil {
 				scope := recover_in_goScope.EnteringNewChildScope()
@@ -139,10 +129,8 @@ var r4 = func() {
 				log.Fatal("r4: Second recover should return nil.")
 			}
 		}
-		var ok bool
-		ctx, ok = godebug.EnterFunc(fn)
-		if ok {
-			fn()
+		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			fn(ctx)
 		}
 		godebug.ExitFunc()
 	})
@@ -193,8 +181,7 @@ func doNestedRecover(recoverer func()) {
 		})
 		godebug.Go(func() {
 			defer close(quit)
-			var ctx *godebug.Context
-			fn := func() {
+			fn := func(ctx *godebug.Context) {
 				godebug.Line(ctx, scope)
 				recoverer()
 				godebug.Line(ctx, scope)
@@ -205,10 +192,8 @@ func doNestedRecover(recoverer func()) {
 					log.Fatal("doNestedRecover: Expected to still be panicking, but we aren't.")
 				}
 			}
-			var ok bool
-			ctx, ok = godebug.EnterFunc(fn)
-			if ok {
-				fn()
+			if ctx, ok := godebug.EnterFuncLit(fn); ok {
+				fn(ctx)
 			}
 			godebug.ExitFunc()
 		})

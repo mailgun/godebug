@@ -31,8 +31,7 @@ func (Foo) DoStuff(int) int {
 }
 
 var f = func() {
-	var _ctx *_godebug.Context
-	fn := func() {
+	fn := func(_ctx *_godebug.Context) {
 		_godebug.Line(_ctx, _name_conflicts_in_goScope)
 		var fn, ok, _ok, ctx, result1, input1, receiver, name_conflicts_in_goScope, scope int
 		__scope := _name_conflicts_in_goScope.EnteringNewChildScope()
@@ -40,10 +39,8 @@ var f = func() {
 		_godebug.Line(_ctx, __scope)
 		godebug.Println(fn, ok, _ok, ctx, result1, input1, receiver, name_conflicts_in_goScope, scope, _scope)
 	}
-	var __ok bool
-	_ctx, __ok = _godebug.EnterFunc(fn)
-	if __ok {
-		fn()
+	if _ctx, __ok := _godebug.EnterFuncLit(fn); __ok {
+		fn(_ctx)
 	}
 	_godebug.ExitFunc()
 }

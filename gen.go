@@ -422,16 +422,13 @@ func (v *visitor) finalizeNode() {
 			newBody.List = astPrintf(`
 				{{%s}}
 				{{%s}}
-				var ctx *godebug.Context
-				%s := func() {
+				%s := func(ctx *godebug.Context) {
 					%s = func() (%s) {
 						%s
 					}()
 				}
-				var ok bool
-				ctx, ok = godebug.EnterFunc(%s)
-				if ok {
-					%s()
+				if ctx, ok := godebug.EnterFuncLit(%s); ok {
+					%s(ctx)
 				}
 				godebug.ExitFunc()
 				return %s
@@ -439,14 +436,11 @@ func (v *visitor) finalizeNode() {
 		} else {
 			newBody.List = astPrintf(`
 				{{%s}}
-				var ctx *godebug.Context
-				%s := func() {
+				%s := func(ctx *godebug.Context) {
 					%s
 				}
-				var ok bool
-				ctx, ok = godebug.EnterFunc(%s)
-				if ok {
-					%s()
+				if ctx, ok := godebug.EnterFuncLit(%s); ok {
+					%s(ctx)
 				}
 				godebug.ExitFunc()
 				`, deferCloseQuit, fn, i.Body.List, fn, fn)

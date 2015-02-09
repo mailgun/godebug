@@ -24,8 +24,7 @@ func main() {
 
 var foo = func(a, _ int) (b, _ string) {
 	var result2 string
-	var ctx *godebug.Context
-	fn := func() {
+	fn := func(ctx *godebug.Context) {
 		b, result2 = func() (b, _ string) {
 			scope := func_lit_in_goScope.EnteringNewChildScope()
 			scope.Declare("a", &a, "b", &b)
@@ -33,25 +32,20 @@ var foo = func(a, _ int) (b, _ string) {
 			return "Hello", "World"
 		}()
 	}
-	var ok bool
-	ctx, ok = godebug.EnterFunc(fn)
-	if ok {
-		fn()
+	if ctx, ok := godebug.EnterFuncLit(fn); ok {
+		fn(ctx)
 	}
 	godebug.ExitFunc()
 	return b, result2
 }
 
 var bar = func() {
-	var ctx *godebug.Context
-	fn := func() {
+	fn := func(ctx *godebug.Context) {
 		godebug.Line(ctx, func_lit_in_goScope)
 		fmt.Println("No inputs or outputs")
 	}
-	var ok bool
-	ctx, ok = godebug.EnterFunc(fn)
-	if ok {
-		fn()
+	if ctx, ok := godebug.EnterFuncLit(fn); ok {
+		fn(ctx)
 	}
 	godebug.ExitFunc()
 }
