@@ -13,4 +13,7 @@ func main() {
 		c <- true
 	}()
 	<-c
+
+	// String literal in defer statement.
+	defer println("Hello")
 }

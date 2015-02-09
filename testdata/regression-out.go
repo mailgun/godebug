@@ -38,4 +38,8 @@ func main() {
 	}()
 	godebug.Line(ctx, scope)
 	<-c
+	godebug.Line(ctx, scope)
+
+	defer println("Hello")
+	defer godebug.SLine(ctx, scope, "<Running deferred function>: defer println(\"Hello\")")
 }

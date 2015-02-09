@@ -618,8 +618,8 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 
 	// If this is a defer statement, defer another function right after it that will let the user step into it if they wish.
 	if def, ok := node.(*ast.DeferStmt); ok {
-		text := getTextLine(def.Pos())
-		v.stmtBuf = append(v.stmtBuf, astPrintf(`defer godebug.SLine(ctx, %s, "<Running deferred function>: %s")`, v.scopeVar, text)[0])
+		text := strconv.Quote("<Running deferred function>: " + getTextLine(def.Pos()))
+		v.stmtBuf = append(v.stmtBuf, astPrintf(`defer godebug.SLine(ctx, %s, %s)`, v.scopeVar, text)[0])
 	}
 
 	w := &visitor{context: node, scopeVar: v.scopeVar}
