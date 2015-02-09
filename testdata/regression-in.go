@@ -16,4 +16,10 @@ func main() {
 
 	// String literal in defer statement.
 	defer println("Hello")
+
+	// String literal in else-if statement.
+	if false {
+	} else if s := "hello"; s == "hello" {
+		println(s)
+	}
 }

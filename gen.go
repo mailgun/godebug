@@ -285,10 +285,10 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 
 func (v *visitor) ifElseCondWrap(cond ast.Expr, text string) ast.Expr {
 	return astPrintfExpr(`func() bool {
-		godebug.ElseIfExpr(ctx, %s, "%s")
+		godebug.ElseIfExpr(ctx, %s, %s)
 		return %s
 	}()
-	`, v.scopeVar, text, cond)
+	`, v.scopeVar, strconv.Quote(text), cond)
 }
 
 func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
@@ -301,9 +301,9 @@ func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) 
 		results[i] = types.TypeString(pkg, defs[ident].Type())
 	}
 	return astPrintfExpr(`func() (%s) {
-		godebug.ElseIfSimpleStmt(ctx, %s, "%s")
+		godebug.ElseIfSimpleStmt(ctx, %s, %s)
 		return %s
-	}()`, strings.Join(results, ", "), v.scopeVar, text, vals)
+	}()`, strings.Join(results, ", "), v.scopeVar, strconv.Quote(text), vals)
 }
 
 var blank = ast.NewIdent("_")

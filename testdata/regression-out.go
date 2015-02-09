@@ -42,4 +42,17 @@ func main() {
 
 	defer println("Hello")
 	defer godebug.SLine(ctx, scope, "<Running deferred function>: defer println(\"Hello\")")
+	godebug.Line(ctx, scope)
+
+	if false {
+	} else if s := func() string {
+		godebug.ElseIfSimpleStmt(ctx, scope, "} else if s := \"hello\"; s == \"hello\" {")
+		return "hello"
+	}(); func() bool {
+		godebug.ElseIfExpr(ctx, scope, "} else if s := \"hello\"; s == \"hello\" {")
+		return s == "hello"
+	}() {
+		godebug.Line(ctx, scope)
+		println(s)
+	}
 }
