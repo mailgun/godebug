@@ -135,6 +135,9 @@ type Context struct {
 
 // Line marks a normal line where the debugger might pause.
 func Line(c *Context, s *Scope) {
+	if atomic.LoadUint32(&currentGoroutine) != c.goroutine {
+		return
+	}
 	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
 		return
 	}
@@ -183,7 +186,7 @@ func SetTraceGen(ctx *Context) {
 	if atomic.LoadInt32(&currentState) != run {
 		return
 	}
-	currentGoroutine = ctx.goroutine
+	atomic.StoreUint32(&currentGoroutine, ctx.goroutine)
 	currentState = step
 }
 
