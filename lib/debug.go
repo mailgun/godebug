@@ -172,6 +172,9 @@ func ElseIfSimpleStmt(c *Context, s *Scope, line string) {
 
 // ElseIfExpr marks an "else if" expression.
 func ElseIfExpr(c *Context, s *Scope, line string) {
+	if atomic.LoadUint32(&currentGoroutine) != c.goroutine {
+		return
+	}
 	if skipNextElseIfExpr {
 		skipNextElseIfExpr = false
 		return
@@ -182,6 +185,9 @@ func ElseIfExpr(c *Context, s *Scope, line string) {
 // SLine is like Line, except that the debugger should print the provided line rather than
 // reading the next line from the source code.
 func SLine(c *Context, s *Scope, line string) {
+	if atomic.LoadUint32(&currentGoroutine) != c.goroutine {
+		return
+	}
 	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
 		return
 	}
@@ -197,6 +203,7 @@ func SetTrace() {
 
 // SetTraceGen is the generated entrypoint to the debugger.
 func SetTraceGen(ctx *Context) {
+	// TODO: The case where the user calls SetTrace multiple times has not been thought out at all yet.
 	if atomic.LoadInt32(&currentState) != run {
 		return
 	}
