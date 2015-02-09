@@ -14,7 +14,7 @@ func (f Foo) Double() Foo {
 	if !ok {
 		return result1
 	}
-	defer godebug.ExitFunc()
+	defer godebug.ExitFunc(ctx)
 	scope := method_in_goScope.EnteringNewChildScope()
 	scope.Declare("f", &f)
 	godebug.Line(ctx, scope)
@@ -30,7 +30,7 @@ func (Foo) Seven() Foo {
 	if !ok {
 		return result1
 	}
-	defer godebug.ExitFunc()
+	defer godebug.ExitFunc(ctx)
 	godebug.Line(ctx, method_in_goScope)
 	return Foo(7)
 }

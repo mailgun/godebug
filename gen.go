@@ -405,7 +405,7 @@ func (v *visitor) finalizeNode() {
 		prepend = append(prepend, genEnterFunc(i, inputs, outputs)...)
 		if !(pkg.Name() == "main" && i.Name.Name == "main") {
 			prepend = append(prepend, &ast.DeferStmt{
-				Call: newCall(idents.godebug, "ExitFunc"),
+				Call: newCall(idents.godebug, "ExitFunc", ast.NewIdent(idents.ctx)),
 			})
 		}
 
@@ -428,9 +428,9 @@ func (v *visitor) finalizeNode() {
 					}()
 				}
 				if ctx, ok := godebug.EnterFuncLit(%s); ok {
+					defer godebug.ExitFunc(ctx)
 					%s(ctx)
 				}
-				godebug.ExitFunc()
 				return %s
 			`, deferCloseQuit, decl, fn, outputs, i.Type.Results, i.Body.List, fn, fn, outputs)
 		} else {
@@ -440,9 +440,9 @@ func (v *visitor) finalizeNode() {
 					%s
 				}
 				if ctx, ok := godebug.EnterFuncLit(%s); ok {
+					defer godebug.ExitFunc(ctx)
 					%s(ctx)
 				}
-				godebug.ExitFunc()
 				`, deferCloseQuit, fn, i.Body.List, fn, fn)
 		}
 		i.Body = newBody

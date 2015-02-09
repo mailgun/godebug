@@ -48,7 +48,7 @@ func add(n, m int) int {
 	if !ok {
 		return result1
 	}
-	defer godebug.ExitFunc()
+	defer godebug.ExitFunc(ctx)
 	scope := example_in_goScope.EnteringNewChildScope()
 	scope.Declare("n", &n, "m", &m)
 	godebug.Line(ctx, scope)
@@ -73,7 +73,7 @@ func mul(n, m int) int {
 	if !ok {
 		return result1
 	}
-	defer godebug.ExitFunc()
+	defer godebug.ExitFunc(ctx)
 	scope := example_in_goScope.EnteringNewChildScope()
 	scope.Declare("n", &n, "m", &m)
 	godebug.Line(ctx, scope)

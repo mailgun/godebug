@@ -33,9 +33,9 @@ var foo = func(a, _ int) (b, _ string) {
 		}()
 	}
 	if ctx, ok := godebug.EnterFuncLit(fn); ok {
+		defer godebug.ExitFunc(ctx)
 		fn(ctx)
 	}
-	godebug.ExitFunc()
 	return b, result2
 }
 
@@ -45,7 +45,7 @@ var bar = func() {
 		fmt.Println("No inputs or outputs")
 	}
 	if ctx, ok := godebug.EnterFuncLit(fn); ok {
+		defer godebug.ExitFunc(ctx)
 		fn(ctx)
 	}
-	godebug.ExitFunc()
 }

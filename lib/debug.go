@@ -36,6 +36,7 @@ func (s *Scope) EnteringNewChildScope() *Scope {
 }
 
 func (s *Scope) getVar(name string) (i interface{}, ok bool) {
+	// TODO: This can race with other goroutines setting the value you are printing.
 	for scope := s; scope != nil; scope = scope.parent {
 		if i, ok = scope.vars[name]; ok {
 			return i, true
@@ -128,15 +129,11 @@ func EnterFuncLit(fn func(*Context)) (ctx *Context, proceed bool) {
 }
 
 // ExitFunc marks the end of a function.
-func ExitFunc() {
-	if atomic.LoadInt32(&currentState) == run {
+func ExitFunc(ctx *Context) {
+	if atomic.LoadUint32(&currentGoroutine) != ctx.goroutine {
 		return
 	}
-	val, ok := context.GetValue(goroutineKey)
-	if !ok {
-		panic("Logic error in the debugger. Sorry! Let me know about this in the github issue tracker.")
-	}
-	if val.(uint32) != atomic.LoadUint32(&currentGoroutine) {
+	if currentState == run {
 		return
 	}
 	if currentState == next && currentDepth == debuggerDepth {

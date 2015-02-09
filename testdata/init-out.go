@@ -17,7 +17,7 @@ func (f *Foo) init() {
 	if !ok {
 		return
 	}
-	defer godebug.ExitFunc()
+	defer godebug.ExitFunc(ctx)
 	scope := init_in_goScope.EnteringNewChildScope()
 	scope.Declare("f", &f)
 	godebug.Line(ctx, scope)

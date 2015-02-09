@@ -19,7 +19,7 @@ func (Foo) DoStuff(int) int {
 	if !__ok {
 		return _result1
 	}
-	defer _godebug.ExitFunc()
+	defer _godebug.ExitFunc(_ctx)
 	_godebug.Line(_ctx, _name_conflicts_in_goScope)
 	var fn, ok, _ok, ctx, result1, input1, receiver, name_conflicts_in_goScope, scope int
 	__scope := _name_conflicts_in_goScope.EnteringNewChildScope()
@@ -40,9 +40,9 @@ var f = func() {
 		godebug.Println(fn, ok, _ok, ctx, result1, input1, receiver, name_conflicts_in_goScope, scope, _scope)
 	}
 	if _ctx, __ok := _godebug.EnterFuncLit(fn); __ok {
+		defer _godebug.ExitFunc(_ctx)
 		fn(_ctx)
 	}
-	_godebug.ExitFunc()
 }
 
 var _scope = 7

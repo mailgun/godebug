@@ -22,9 +22,9 @@ func r1() {
 			<-(<-_godebug_recover_chan_)
 		}
 		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			defer godebug.ExitFunc(ctx)
 			fn(ctx)
 		}
-		godebug.ExitFunc()
 	})
 	for {
 		select {
@@ -62,9 +62,9 @@ func r2() {
 			}
 		}
 		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			defer godebug.ExitFunc(ctx)
 			fn(ctx)
 		}
-		godebug.ExitFunc()
 	})
 	for {
 		select {
@@ -90,9 +90,9 @@ var r3 = func() {
 			<-(<-_godebug_recover_chan_)
 		}
 		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			defer godebug.ExitFunc(ctx)
 			fn(ctx)
 		}
-		godebug.ExitFunc()
 	})
 	for {
 		select {
@@ -130,9 +130,9 @@ var r4 = func() {
 			}
 		}
 		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			defer godebug.ExitFunc(ctx)
 			fn(ctx)
 		}
-		godebug.ExitFunc()
 	})
 	for {
 		select {
@@ -151,7 +151,7 @@ func doPanic(recoverer func()) {
 	if !ok {
 		return
 	}
-	defer godebug.ExitFunc()
+	defer godebug.ExitFunc(ctx)
 	scope := recover_in_goScope.EnteringNewChildScope()
 	scope.Declare("recoverer", &recoverer)
 	godebug.Line(ctx, scope)
@@ -168,7 +168,7 @@ func doNestedRecover(recoverer func()) {
 	if !ok {
 		return
 	}
-	defer godebug.ExitFunc()
+	defer godebug.ExitFunc(ctx)
 	scope := recover_in_goScope.EnteringNewChildScope()
 	scope.Declare("recoverer", &recoverer)
 	godebug.Line(ctx, scope)
@@ -193,9 +193,9 @@ func doNestedRecover(recoverer func()) {
 				}
 			}
 			if ctx, ok := godebug.EnterFuncLit(fn); ok {
+				defer godebug.ExitFunc(ctx)
 				fn(ctx)
 			}
-			godebug.ExitFunc()
 		})
 		for {
 			select {

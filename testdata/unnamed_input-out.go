@@ -24,7 +24,7 @@ func foo(int, int) (string, error) {
 	if !ok {
 		return result1, result2
 	}
-	defer godebug.ExitFunc()
+	defer godebug.ExitFunc(ctx)
 	godebug.Line(ctx, unnamed_input_in_goScope)
 	return "hello", nil
 }

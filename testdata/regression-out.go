@@ -32,9 +32,9 @@ func main() {
 			c <- true
 		}
 		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			defer godebug.ExitFunc(ctx)
 			fn(ctx)
 		}
-		godebug.ExitFunc()
 	}()
 	godebug.Line(ctx, scope)
 	<-c

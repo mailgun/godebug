@@ -12,7 +12,7 @@ func Varargs(i ...int) int {
 	if !ok {
 		return result1
 	}
-	defer godebug.ExitFunc()
+	defer godebug.ExitFunc(ctx)
 	scope := variadic_in_goScope.EnteringNewChildScope()
 	scope.Declare("i", &i)
 	godebug.Line(ctx, scope)
