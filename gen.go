@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
+	"go/parser"
 	"go/printer"
 	"go/token"
 	"io"
@@ -21,6 +22,7 @@ import (
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
 	_ "github.com/mailgun/godebug/lib" // so the library is also installed whenever this package is
+	_ "golang.org/x/tools/go/gccgoimporter"
 )
 
 var w = flag.Bool("w", false, "write result to (source) file instead of stdout")
@@ -81,12 +83,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error loading packages: %v\n\n", err)
 		flag.Usage()
 	}
-	fs = prog.Fset
 	for _, pkgInfo := range prog.InitialPackages() {
 		defs = pkgInfo.Defs
 		_types = pkgInfo.Types
 		pkg = pkgInfo.Pkg
 		for _, f := range pkgInfo.Files {
+			fs = prog.Fset
+			fname := fs.Position(f.Pos()).Filename
+			if strings.HasSuffix(fname, "/C") {
+				continue
+			}
+			ast1, fs1 := parseCgoFile(fname)
+			if ast1 != nil {
+				f = ast1
+				fs = fs1
+			}
 			generateGodebugIdentifiers(f)
 			idents.fileScope = createFileScopeIdent(f)
 			for _, imp := range f.Imports {
@@ -801,4 +812,19 @@ func rewriteRecoverCall(parent, _recover ast.Node) {
 			}
 		}
 	}
+}
+
+func parseCgoFile(filename string) (*ast.File, *token.FileSet) {
+	fs := token.NewFileSet()
+	ast1, err := parser.ParseFile(fs, filename, nil, parser.ParseComments)
+	if err != nil {
+		fmt.Println("Error parsing file:", err)
+		os.Exit(1)
+	}
+	for _, spec := range ast1.Imports {
+		if spec.Path.Value == `"C"` {
+			return ast1, fs
+		}
+	}
+	return nil, nil
 }
