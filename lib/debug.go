@@ -217,6 +217,18 @@ func init() {
 	input = bufio.NewScanner(os.Stdin)
 }
 
+var help = `
+Commands:
+    (h) help: Print this help.
+    (n) next: Run the next line.
+    (s) step: Run for one step.
+    (c) continue: Run until the next breakpoint.
+    (p) print <var>: Print a variable.
+
+Commands may be given by their full name or by their parenthesized abbreviation.
+Any input that is not one of the above commands is interpreted as a variable name.
+`
+
 func waitForInput(scope *Scope) {
 	for {
 		fmt.Print("(godebug) ")
@@ -236,6 +248,9 @@ func waitForInput(scope *Scope) {
 		case "c", "continue":
 			currentState = run
 			return
+		case "h", "help":
+			fmt.Println(help)
+			continue
 		}
 		if v, ok := scope.getVar(strings.TrimSpace(s)); ok {
 			fmt.Println(dereference(v))

@@ -1,0 +1,30 @@
+// Get help.
+
+-> x = mul(x, x)
+(godebug) h
+
+Commands:
+    (h) help: Print this help.
+    (n) next: Run the next line.
+    (s) step: Run for one step.
+    (c) continue: Run until the next breakpoint.
+    (p) print <var>: Print a variable.
+
+Commands may be given by their full name or by their parenthesized abbreviation.
+Any input that is not one of the above commands is interpreted as a variable name.
+
+(godebug) help
+
+Commands:
+    (h) help: Print this help.
+    (n) next: Run the next line.
+    (s) step: Run for one step.
+    (c) continue: Run until the next breakpoint.
+    (p) print <var>: Print a variable.
+
+Commands may be given by their full name or by their parenthesized abbreviation.
+Any input that is not one of the above commands is interpreted as a variable name.
+
+(godebug) continue
+What's going on? x == 16
+
