@@ -1,3 +1,5 @@
+// Stepping straight through the program.
+
 -> x = mul(x, x)
 (godebug) x
 4

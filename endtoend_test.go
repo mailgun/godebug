@@ -48,20 +48,26 @@ func TestGoldenFiles(t *testing.T) {
 	}
 	tests := make(map[string]bool)
 	skipped := make(map[string]bool)
+	sessions := make(map[string][]string)
 	if *files != "" {
 		for _, name := range strings.Split(*files, ",") {
 			tests[name] = true
 		}
 	}
-	re := regexp.MustCompile(".*-out.go|.*-in.go|.*-session.txt")
+	re := regexp.MustCompile(`(.*)-(?:out.go|in.go|(session(?:.*).txt))`)
 	for _, name := range names {
 		if name == "README.md" {
 			continue
 		}
-		if !re.MatchString(name) {
+		groups := re.FindStringSubmatch(name)
+		if groups == nil {
 			t.Fatal("Unexpected file in testdata directory:", name)
 		}
-		prefix := name[:strings.LastIndex(name, "-")]
+		prefix, sessionName := groups[1], groups[2]
+		if sessionName != "" {
+			sessions[prefix] = append(sessions[prefix], name)
+			continue
+		}
 		if *files == "" {
 			tests[prefix] = true
 			continue
@@ -75,7 +81,13 @@ func TestGoldenFiles(t *testing.T) {
 	}
 	for test := range tests {
 		compareGolden(t, godebug, test)
-		runGolden(t, test)
+		goldenSessions := sessions[test]
+		if len(goldenSessions) == 0 {
+			runGolden(t, test, nil)
+		}
+		for _, filename := range goldenSessions {
+			runGolden(t, test, parseSession(t, filename))
+		}
 	}
 }
 
@@ -110,32 +122,48 @@ var (
 	whitespace = "               "
 )
 
-func runGolden(t *testing.T, test string) {
-	input, goldenSession, checkSession := parseSession(t, test)
+type session struct {
+	// The bytes to send to stdin.
+	input []byte
+
+	// A transcript of the session as it would appear if run interactively in a terminal.
+	fullSession []byte
+
+	// The filename of this session inside testdata/
+	filename string
+}
+
+func runGolden(t *testing.T, test string, s *session) {
 	var buf bytes.Buffer
 	cmd := exec.Command("go", "run", filepath.Join("testdata", test+"-out.go"))
-	if checkSession {
-		cmd.Stdin = bytes.NewReader(input)
+	if s != nil {
+		cmd.Stdin = bytes.NewReader(s.input)
 	}
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 	if err := cmd.Run(); err != nil {
 		t.Errorf("Golden file failed to run: %v\n%s", err, buf.Bytes())
 	}
-	if !checkSession {
+	if s != nil {
+		checkOutput(t, s, buf.Bytes())
+	}
+}
+
+func checkOutput(t *testing.T, want *session, output []byte) {
+	fmt.Println("checking", want.filename)
+	got := interleaveCommands(want.input, output)
+	if bytes.Equal(got, want.fullSession) {
 		return
 	}
-	session := interleaveCommands(input, buf.Bytes())
-	if bytes.Equal(session, goldenSession) {
-		return
-	}
+
 	if *acceptSession {
-		if err := ioutil.WriteFile(filepath.Join("testdata", test+"-session.txt"), session, 0644); err != nil {
+		if err := ioutil.WriteFile(filepath.Join("testdata", want.filename), got, 0644); err != nil {
 			t.Fatal(err)
 		}
 		return
 	}
-	goldLines, gotLines := bytes.Split(goldenSession, []byte("\n")), bytes.Split(session, []byte("\n"))
+
+	goldLines, gotLines := bytes.Split(want.fullSession, []byte("\n")), bytes.Split(got, []byte("\n"))
 	var diff []byte
 	i := 0
 	for ; i < len(goldLines) && i < len(gotLines); i++ {
@@ -150,7 +178,7 @@ func runGolden(t *testing.T, test string) {
 	for ; i < len(gotLines); i++ {
 		diff = append(diff, fmt.Sprintf("%s%s\n", whitespace, gotLines[i])...)
 	}
-	t.Errorf("%s: Session did not match. Got this session:\n%s", test, diff)
+	t.Errorf("%s: Session did not match. Got this session:\n%s", want.filename, diff)
 }
 
 var prompt = []byte("(godebug) ")
@@ -188,20 +216,28 @@ func interleaveCommands(input, output []byte) (combined []byte) {
 	return combined
 }
 
-func parseSession(t *testing.T, test string) (input, fullSession []byte, ok bool) {
-	f, err := os.Open(filepath.Join("testdata", test+"-session.txt"))
-	if os.IsNotExist(err) {
-		ok = false
-		return
-	}
-	ok = true
+func parseSession(t *testing.T, filename string) *session {
+	f, err := os.Open(filepath.Join("testdata", filename))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
+
+	fileCommentOk := true
+
+	var input, fullSession []byte
+
 	for scanner.Scan() {
 		b := append(scanner.Bytes(), '\n')
+
+		// Scan past top of file comment. The top of file comment consists of any number of consecutive
+		// lines that are either blank or begin with the string "//".
+		if fileCommentOk && (bytes.HasPrefix(b, []byte("//")) || len(b) == 1) {
+			continue
+		}
+		fileCommentOk = false
+
 		if bytes.HasPrefix(b, prompt) {
 			input = append(input, b[len(prompt):]...)
 		}
@@ -210,7 +246,7 @@ func parseSession(t *testing.T, test string) (input, fullSession []byte, ok bool
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
-	return
+	return &session{input, fullSession, filename}
 }
 
 func getDiff(filename string, inBuf []byte) []byte {

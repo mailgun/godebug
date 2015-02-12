@@ -1,0 +1,20 @@
+// Step for a bit and then run the rest of the program.
+
+-> x = mul(x, x)
+(godebug) x
+4
+(godebug) print x
+4
+(godebug) step
+-> var x int
+(godebug) next
+-> for i := 0; i < m; i++ {
+(godebug) x
+0
+(godebug) print m
+4
+(godebug) next
+-> x = add(x, m)
+(godebug) continue
+What's going on? x == 16
+
