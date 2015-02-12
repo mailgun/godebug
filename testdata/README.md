@@ -2,7 +2,7 @@ This directory contains end-to-end test cases for godebug.
 
 **Organization**
 
-For each test `X`, there is a file named `X-in.go` and a file named `X-out.go`. `X-in.go` is a sample program. `X-out.go` is the expected output of running `godebug` on `X-in.go`. There may also be session files for `X`. Session files are named `X-session<name>.txt`. If it exists, this file is a record of a debugging session that steps through and examines the execution of `X-in.go`.
+For each test `X`, there is a file named `X-in.go` and a file named `X-out.go`. `X-in.go` is a sample program. `X-out.go` is the expected output of running `godebug` on `X-in.go`. There may also be session files for `X`. Session files are named `X-session<name>.txt`.
 
 **Session files**
 
