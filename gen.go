@@ -612,6 +612,9 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		v.stmtBuf = append(v.stmtBuf, stmt)
 	}
 
+	// Create the next visitor now, because v.scopeVar may change below.
+	w := &visitor{context: node, scopeVar: v.scopeVar}
+
 	// If this statement declared new identifiers, output a Declare call.
 	var newIdents []*ast.Ident
 	switch i := node.(type) {
@@ -633,7 +636,6 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		v.stmtBuf = append(v.stmtBuf, astPrintf(`defer godebug.SLine(ctx, %s, %s)`, v.scopeVar, text)[0])
 	}
 
-	w := &visitor{context: node, scopeVar: v.scopeVar}
 	if _if, ok := node.(*ast.IfStmt); ok {
 		w.blockVars = newIdentsInSimpleStmt(_if.Init)
 	}

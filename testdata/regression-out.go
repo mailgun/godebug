@@ -9,21 +9,43 @@ func main() {
 	if !ok {
 		return
 	}
+	godebug.Line(ctx, regression_in_goScope)
+
+	foo := func(i int) int {
+		var result1 int
+		fn := func(ctx *godebug.Context) {
+			result1 = func() int {
+				scope := regression_in_goScope.EnteringNewChildScope()
+				scope.Declare("i", &i)
+				godebug.Line(ctx, scope)
+				return i
+			}()
+		}
+		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+			defer godebug.ExitFunc(ctx)
+			fn(ctx)
+		}
+		return result1
+	}(3)
+	scope := regression_in_goScope.EnteringNewChildScope()
+	scope.Declare("foo", &foo)
+	godebug.Line(ctx, scope)
+
+	_ = foo
 	{
-		scope := regression_in_goScope.EnteringNewChildScope()
+		scope := scope.EnteringNewChildScope()
 
 		for _, s := range []string{"foo"} {
 			godebug.SLine(ctx, scope, "for _, s := range []string{\"foo\"} {")
 			scope.Declare("s", &s)
-			godebug.Line(ctx, regression_in_goScope)
+			godebug.Line(ctx, scope)
 			_ = s
 		}
 		godebug.SLine(ctx, scope, "for _, s := range []string{\"foo\"} {")
 	}
-	godebug.Line(ctx, regression_in_goScope)
+	godebug.Line(ctx, scope)
 
 	c := make(chan bool)
-	scope := regression_in_goScope.EnteringNewChildScope()
 	scope.Declare("c", &c)
 	godebug.Line(ctx, scope)
 	go func() {

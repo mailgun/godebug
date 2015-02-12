@@ -1,6 +1,12 @@
 package main
 
 func main() {
+	// Nested scope in the first declaration in a function.
+	foo := func(i int) int {
+		return i
+	}(3)
+	_ = foo
+
 	// String literal in range statement.
 	// Blank identifier in range statement.
 	for _, s := range []string{"foo"} {
