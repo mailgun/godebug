@@ -233,6 +233,9 @@ func waitForInput(scope *Scope) {
 		case "s", "step":
 			currentState = step
 			return
+		case "c", "continue":
+			currentState = run
+			return
 		}
 		if v, ok := scope.getVar(strings.TrimSpace(s)); ok {
 			fmt.Println(dereference(v))
