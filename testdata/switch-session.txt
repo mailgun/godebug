@@ -1,0 +1,44 @@
+-> switch {
+(godebug) n
+-> case false:
+(godebug) n
+-> case true:
+(godebug) n
+-> fmt.Println("true")
+(godebug) n
+true
+-> i := 3
+(godebug) n
+-> switch i {
+(godebug) i
+3
+(godebug) n
+-> case foo():
+(godebug) step
+-> return "hi"
+(godebug) n
+-> case 5, 4, 1:
+(godebug) n
+-> case 2:
+(godebug) n
+-> default:
+(godebug) n
+-> var ifc interface{} = i
+(godebug) n
+-> switch ifc.(type) {
+(godebug) ifc
+3
+(godebug) n
+-> switch b := 2; b == 6 {
+(godebug) n
+-> case true:
+(godebug) b
+2
+(godebug) n
+-> case false:
+(godebug) n
+-> switch b := ifc; i := ifc.(type) {
+(godebug) n
+-> case int:
+(godebug) n
+

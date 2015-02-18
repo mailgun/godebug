@@ -162,6 +162,15 @@ type Context struct {
 	goroutine uint32
 }
 
+type caseSentinel int
+
+// Case marks a case clause. Intended to be inserted as its own case clause
+// immediately prior to the case clause it is marking.
+func Case(c *Context, s *Scope, line int) interface{} {
+	Line(c, s, line)
+	return caseSentinel(0)
+}
+
 // Line marks a normal line where the debugger might pause.
 func Line(c *Context, s *Scope, line int) {
 	lineWithPrefix(c, s, line, "")

@@ -144,6 +144,13 @@ func varDecl(specs ...ast.Spec) ast.Decl {
 	return &ast.GenDecl{Tok: token.VAR, Specs: specs}
 }
 
+func newStringLit(v string) *ast.BasicLit {
+	return &ast.BasicLit{
+		Kind:  token.STRING,
+		Value: v,
+	}
+}
+
 func newInt(n int) *ast.BasicLit {
 	return &ast.BasicLit{
 		Kind:  token.INT,
@@ -166,6 +173,14 @@ func newSel(selector, name string) *ast.SelectorExpr {
 		X:   ast.NewIdent(selector),
 		Sel: ast.NewIdent(name),
 	}
+}
+
+func pos2line(pos token.Pos) (line int) {
+	return fs.Position(pos).Line
+}
+
+func pos2lineString(pos token.Pos) string {
+	return strconv.Itoa(pos2line(pos))
 }
 
 func isNewIdent(ident *ast.Ident) bool {
@@ -215,6 +230,7 @@ type visitor struct {
 	blockVars            []*ast.Ident
 	createdExplicitScope bool
 	hasRecovers          bool
+	parentIsExprSwitch   bool
 	loopState
 }
 
@@ -255,7 +271,7 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 	if body == nil {
 		return
 	}
-	line := fs.Position(pos).Line
+	line := pos2line(pos)
 	if len(v.newIdents) == 0 {
 		call := newCall(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(line))
 		body.List = append(body.List, &ast.ExprStmt{X: call})
@@ -272,7 +288,7 @@ func (v *visitor) ifElseCondWrap(cond ast.Expr, pos token.Pos) ast.Expr {
 		godebug.ElseIfExpr(ctx, %s, %s)
 		return %s
 	}()
-	`, v.scopeVar, strconv.Itoa(fs.Position(pos).Line), cond)
+	`, v.scopeVar, pos2lineString(pos), cond)
 }
 
 func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, pos token.Pos) ast.Expr {
@@ -287,7 +303,7 @@ func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, pos token.Pos
 	return astPrintfExpr(`func() (%s) {
 		godebug.ElseIfSimpleStmt(ctx, %s, %s)
 		return %s
-	}()`, strings.Join(results, ", "), v.scopeVar, strconv.Itoa(fs.Position(pos).Line), vals)
+	}()`, strings.Join(results, ", "), v.scopeVar, pos2lineString(pos), vals)
 }
 
 var blank = ast.NewIdent("_")
@@ -423,13 +439,27 @@ func newIdentsInRange(_range *ast.RangeStmt) (idents []*ast.Ident) {
 	return
 }
 
+func (v *visitor) wrapSwitch(_switch *ast.SwitchStmt, idents []*ast.Ident) (block *ast.BlockStmt) {
+	block = astPrintf(`
+		{
+			godebug.Line(ctx, %s, %s)
+			%s
+			scope := %s.EnteringNewChildScope()
+			_ = scope // placeholder
+			_ = scope // placeholder
+		}`, v.scopeVar, pos2lineString(_switch.Pos()), _switch.Init, v.scopeVar)[0].(*ast.BlockStmt)
+	block.List[3] = newDeclareCall(v.scopeVar, idents)
+	block.List[4] = _switch
+	return block
+}
+
 func (v *visitor) wrapLoop(node ast.Stmt, body *ast.BlockStmt) (block *ast.BlockStmt, loop ast.Stmt) {
 	block = astPrintf(`
 		{
 			scope := %s.EnteringNewChildScope()
 			_ = scope // placeholder
 			godebug.Line(ctx, scope, %s)
-		}`, v.scopeVar, strconv.Itoa(fs.Position(node.Pos()).Line))[0].(*ast.BlockStmt)
+		}`, v.scopeVar, pos2lineString(node.Pos()))[0].(*ast.BlockStmt)
 	block.List[1] = node
 	loop = node
 	return
@@ -470,7 +500,7 @@ func (v *visitor) finalizeNode() {
 
 	case *ast.IfStmt:
 		if blk, ok := i.Else.(*ast.BlockStmt); ok {
-			elseCall := newCall(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(fs.Position(i.Else.Pos()).Line))
+			elseCall := newCall(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(i.Else.Pos())))
 			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
 		}
 		if ifstmt, ok := i.Else.(*ast.IfStmt); ok {
@@ -516,6 +546,8 @@ func (v *visitor) finalizeNode() {
 }
 
 func (v *visitor) Visit(node ast.Node) ast.Visitor {
+	childVisitor := &visitor{context: node, scopeVar: v.scopeVar, parentIsExprSwitch: v.parentIsExprSwitch}
+
 	switch i := node.(type) {
 
 	case nil:
@@ -528,36 +560,63 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			return nil
 		}
 		// If there is a call to recover() anywhere in this function, it needs some fairly elaborate treatment.
-		didRewrite := rewriteRecoversIn(i.Body)
-		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: idents.fileScope, hasRecovers: didRewrite}
+		childVisitor.blockVars = getIdents(i.Recv, i.Type.Params, i.Type.Results)
+		childVisitor.hasRecovers = rewriteRecoversIn(i.Body)
+		return childVisitor
 
 	case *ast.FuncLit:
 		// If there is a call to recover() anywhere in this function, it needs some fairly elaborate treatment.
-		didRewrite := rewriteRecoversIn(i.Body)
-		return &visitor{context: node, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar, hasRecovers: didRewrite}
+		childVisitor.blockVars = getIdents(i.Type.Params, i.Type.Results)
+		childVisitor.hasRecovers = rewriteRecoversIn(i.Body)
+		return childVisitor
 
 	case *ast.BlockStmt:
 		if v.stmtBuf != nil {
-			v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(fs.Position(node.Pos()).Line)))
+			v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(node.Pos()))))
 			v.stmtBuf = append(v.stmtBuf, i)
 		}
-		w := &visitor{context: node, stmtBuf: make([]ast.Stmt, 0, 3*len(i.List)), scopeVar: v.scopeVar}
+		childVisitor.stmtBuf = make([]ast.Stmt, 0, 3*len(i.List))
 		if len(v.blockVars) > 0 {
-			w.createScope()
-			w.stmtBuf = append(w.stmtBuf, newDeclareCall(w.scopeVar, v.blockVars))
+			childVisitor.createScope()
+			childVisitor.stmtBuf = append(childVisitor.stmtBuf, newDeclareCall(childVisitor.scopeVar, v.blockVars))
 		}
-		return w
+		return childVisitor
 
+	case *ast.SwitchStmt:
+		childVisitor.parentIsExprSwitch = true
+		newIdents := newIdentsInSimpleStmt(i.Init)
+		if len(newIdents) > 0 {
+			block := v.wrapSwitch(i, newIdents)
+			v.stmtBuf = append(v.stmtBuf, block)
+			return childVisitor
+		}
+
+	case *ast.CaseClause:
+		if v.stmtBuf != nil {
+			if v.parentIsExprSwitch && len(i.List) > 0 {
+				v.stmtBuf = append(v.stmtBuf, &ast.CaseClause{List: []ast.Expr{newCall(idents.godebug, "Case", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(i.Pos())))}})
+			}
+			v.stmtBuf = append(v.stmtBuf, i)
+		}
+		childVisitor.stmtBuf = make([]ast.Stmt, 0, 3*len(i.List))
+		for _, stmt := range i.Body {
+			ast.Walk(childVisitor, stmt)
+		}
+		i.Body = childVisitor.stmtBuf
+		if i.List == nil || !v.parentIsExprSwitch { // then this is a default clause or a type switch clause
+			i.Body = append([]ast.Stmt{newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(i.Pos())))}, i.Body...)
+		}
+		return nil
 	// TODO: Wrap these clauses the same way as if-else clauses.
-	case *ast.CommClause, *ast.CaseClause:
-		v.stmtBuf = append(v.stmtBuf, i.(ast.Stmt))
-		return &visitor{context: node, scopeVar: v.scopeVar}
+	case *ast.CommClause:
+		v.stmtBuf = append(v.stmtBuf, i)
+		return childVisitor
 
 	}
 
 	// The code below is about inserting debug calls. Skip it if we're not in a context where that makes sense.
 	if v.stmtBuf == nil {
-		return &visitor{context: node, scopeVar: v.scopeVar}
+		return childVisitor
 	}
 
 	// If this is a loop that declares identifiers, wrap it in a block statement so we can declare identifiers at the right time.
@@ -567,19 +626,23 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		if len(newIdents) > 0 {
 			block, loop := v.wrapLoop(i, i.Body)
 			v.stmtBuf = append(v.stmtBuf, block)
-			return &visitor{context: loop, scopeVar: v.scopeVar, loopState: loopState{newIdents: newIdents}}
+			childVisitor.context = loop
+			childVisitor.loopState = loopState{newIdents: newIdents}
+			return childVisitor
 		}
 	case *ast.RangeStmt:
 		newIdents := newIdentsInRange(i)
 		if len(newIdents) > 0 {
 			block, loop := v.wrapLoop(i, i.Body)
 			v.stmtBuf = append(v.stmtBuf, block)
-			return &visitor{context: loop, scopeVar: v.scopeVar, loopState: loopState{newIdents: newIdents}}
+			childVisitor.context = loop
+			childVisitor.loopState = loopState{newIdents: newIdents}
+			return childVisitor
 		}
 	}
 
 	if !isSetTraceCall(node) {
-		v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(fs.Position(node.Pos()).Line)))
+		v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(node.Pos()))))
 	}
 
 	// Copy the statement into the new block we are building.
@@ -592,9 +655,6 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		}
 		v.stmtBuf = append(v.stmtBuf, stmt)
 	}
-
-	// Create the next visitor now, because v.scopeVar may change below.
-	w := &visitor{context: node, scopeVar: v.scopeVar}
 
 	// If this statement declared new identifiers, output a Declare call.
 	var newIdents []*ast.Ident
@@ -613,13 +673,13 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 
 	// If this is a defer statement, defer another function right after it that will let the user step into it if they wish.
 	if _, isDefer := node.(*ast.DeferStmt); isDefer {
-		v.stmtBuf = append(v.stmtBuf, astPrintf(`defer godebug.Defer(ctx, %s, %s)`, v.scopeVar, strconv.Itoa(fs.Position(node.Pos()).Line))[0])
+		v.stmtBuf = append(v.stmtBuf, astPrintf(`defer godebug.Defer(ctx, %s, %s)`, v.scopeVar, pos2lineString(node.Pos()))[0])
 	}
 
 	if _if, ok := node.(*ast.IfStmt); ok {
-		w.blockVars = newIdentsInSimpleStmt(_if.Init)
+		childVisitor.blockVars = newIdentsInSimpleStmt(_if.Init)
 	}
-	return w
+	return childVisitor
 }
 
 func getIdents(lists ...*ast.FieldList) (idents []*ast.Ident) {
@@ -646,10 +706,7 @@ func newDeclareCall(scopeVar string, newVars []*ast.Ident) ast.Stmt {
 	call := expr.X.(*ast.CallExpr)
 	call.Args = make([]ast.Expr, 2*len(newVars))
 	for i, _var := range newVars {
-		call.Args[2*i] = &ast.BasicLit{
-			Kind:  token.STRING,
-			Value: strconv.Quote(_var.Name),
-		}
+		call.Args[2*i] = newStringLit(strconv.Quote(_var.Name))
 		call.Args[2*i+1] = &ast.UnaryExpr{
 			Op: token.AND,
 			X:  _var,
