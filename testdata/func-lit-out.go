@@ -1,34 +1,30 @@
 package main
-
 import (
 	"fmt"
 	"github.com/mailgun/godebug/lib"
 )
-
-var func_lit_in_goScope = godebug.EnteringNewScope()
-
+var func_lit_in_go_scope = godebug.EnteringNewScope(func_lit_in_go_contents)
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
 	if !ok {
 		return
 	}
-	godebug.Line(ctx, func_lit_in_goScope)
+	godebug.Line(ctx, func_lit_in_go_scope, 6)
 	hi, there := foo(7, 12)
-	scope := func_lit_in_goScope.EnteringNewChildScope()
+	scope := func_lit_in_go_scope.EnteringNewChildScope()
 	scope.Declare("hi", &hi, "there", &there)
-	godebug.Line(ctx, scope)
+	godebug.Line(ctx, scope, 7)
 	fmt.Println(hi, there)
-	godebug.Line(ctx, scope)
+	godebug.Line(ctx, scope, 8)
 	bar()
 }
-
 var foo = func(a, _ int) (b, _ string) {
 	var result2 string
 	fn := func(ctx *godebug.Context) {
 		b, result2 = func() (b, _ string) {
-			scope := func_lit_in_goScope.EnteringNewChildScope()
+			scope := func_lit_in_go_scope.EnteringNewChildScope()
 			scope.Declare("a", &a, "b", &b)
-			godebug.Line(ctx, scope)
+			godebug.Line(ctx, scope, 12)
 			return "Hello", "World"
 		}()
 	}
@@ -38,10 +34,9 @@ var foo = func(a, _ int) (b, _ string) {
 	}
 	return b, result2
 }
-
 var bar = func() {
 	fn := func(ctx *godebug.Context) {
-		godebug.Line(ctx, func_lit_in_goScope)
+		godebug.Line(ctx, func_lit_in_go_scope, 16)
 		fmt.Println("No inputs or outputs")
 	}
 	if ctx, ok := godebug.EnterFuncLit(fn); ok {
@@ -49,3 +44,22 @@ var bar = func() {
 		fn(ctx)
 	}
 }
+
+var func_lit_in_go_contents = `package main
+
+import "fmt"
+
+func main() {
+	hi, there := foo(7, 12)
+	fmt.Println(hi, there)
+	bar()
+}
+
+var foo = func(a, _ int) (b, _ string) {
+	return "Hello", "World"
+}
+
+var bar = func() {
+	fmt.Println("No inputs or outputs")
+}
+`

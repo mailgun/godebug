@@ -14,6 +14,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/kylelemons/godebug/diff"
 )
 
 var (
@@ -117,11 +119,6 @@ func compareGolden(t *testing.T, godebug, test string) {
 	}
 }
 
-var (
-	firstDiff  = "first diff --> "
-	whitespace = "               "
-)
-
 type session struct {
 	// The bytes to send to stdin.
 	input []byte
@@ -163,22 +160,7 @@ func checkOutput(t *testing.T, want *session, output []byte) {
 		return
 	}
 
-	goldLines, gotLines := bytes.Split(want.fullSession, []byte("\n")), bytes.Split(got, []byte("\n"))
-	var diff []byte
-	i := 0
-	for ; i < len(goldLines) && i < len(gotLines); i++ {
-		if bytes.Equal(goldLines[i], gotLines[i]) {
-			diff = append(diff, fmt.Sprintf("%s%s\n", whitespace, gotLines[i])...)
-			continue
-		}
-		diff = append(diff, fmt.Sprintf("%s%s\n", firstDiff, gotLines[i])...)
-		i++
-		break
-	}
-	for ; i < len(gotLines); i++ {
-		diff = append(diff, fmt.Sprintf("%s%s\n", whitespace, gotLines[i])...)
-	}
-	t.Errorf("%s: Session did not match. Got this session:\n%s", want.filename, diff)
+	t.Errorf("%s: Session did not match. Diff:\n%v", want.filename, diff.Diff(string(want.fullSession), string(got)))
 }
 
 var prompt = []byte("(godebug) ")

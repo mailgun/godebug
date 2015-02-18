@@ -1,0 +1,74 @@
+// Using the list command.
+
+-> x = mul(x, x)
+(godebug) list
+
+
+    func main() {
+    	x := mul(1, 2)
+    	godebug.SetTrace()
+--> 	x = mul(x, x)
+    	if x == 4 {
+    		fmt.Println("It works! x == 4.")
+    	} else if n := 2; n == 3 {
+    		fmt.Println("Math is broken. Ah!")
+
+(godebug) n
+-> if x == 4 {
+(godebug) list
+
+    func main() {
+    	x := mul(1, 2)
+    	godebug.SetTrace()
+    	x = mul(x, x)
+--> 	if x == 4 {
+    		fmt.Println("It works! x == 4.")
+    	} else if n := 2; n == 3 {
+    		fmt.Println("Math is broken. Ah!")
+    	} else {
+
+(godebug) n
+-> } else if n := 2; n == 3 {
+(godebug) l
+
+    	godebug.SetTrace()
+    	x = mul(x, x)
+    	if x == 4 {
+    		fmt.Println("It works! x == 4.")
+--> 	} else if n := 2; n == 3 {
+    		fmt.Println("Math is broken. Ah!")
+    	} else {
+    		fmt.Println("What's going on? x ==", x)
+    	}
+
+(godebug) n
+-> } else {
+(godebug) l
+
+    	if x == 4 {
+    		fmt.Println("It works! x == 4.")
+    	} else if n := 2; n == 3 {
+    		fmt.Println("Math is broken. Ah!")
+--> 	} else {
+    		fmt.Println("What's going on? x ==", x)
+    	}
+    }
+
+
+(godebug) n
+-> fmt.Println("What's going on? x ==", x)
+(godebug) l
+
+    		fmt.Println("It works! x == 4.")
+    	} else if n := 2; n == 3 {
+    		fmt.Println("Math is broken. Ah!")
+    	} else {
+--> 		fmt.Println("What's going on? x ==", x)
+    	}
+    }
+
+    func add(n, m int) int {
+
+(godebug) next
+What's going on? x == 16
+

@@ -2,27 +2,41 @@ package godebug
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"os"
 	"reflect"
-	"runtime"
 	"strings"
 	"sync/atomic"
+	"unicode"
 
 	"github.com/jtolds/gls"
 )
 
 // Scope represents a lexical scope for variable bindings.
 type Scope struct {
-	vars   map[string]interface{}
-	parent *Scope
+	vars     map[string]interface{}
+	parent   *Scope
+	fileText []string
 }
 
 // EnteringNewScope returns a new Scope and internally sets
 // the current scope to be the returned scope.
-func EnteringNewScope() *Scope {
-	return &Scope{vars: make(map[string]interface{})}
+func EnteringNewScope(fileText string) *Scope {
+	return &Scope{
+		vars:     make(map[string]interface{}),
+		fileText: parseLines(fileText),
+	}
+}
+
+func parseLines(text string) []string {
+	lines := strings.Split(text, "\n")
+
+	// Trailing newline is not a separate line
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+
+	return lines
 }
 
 // EnteringNewChildScope returns a new Scope that is the
@@ -30,8 +44,9 @@ func EnteringNewScope() *Scope {
 // the returned scope.
 func (s *Scope) EnteringNewChildScope() *Scope {
 	return &Scope{
-		vars:   make(map[string]interface{}),
-		parent: s,
+		vars:     make(map[string]interface{}),
+		parent:   s,
+		fileText: s.fileText,
 	}
 }
 
@@ -148,7 +163,11 @@ type Context struct {
 }
 
 // Line marks a normal line where the debugger might pause.
-func Line(c *Context, s *Scope) {
+func Line(c *Context, s *Scope, line int) {
+	lineWithPrefix(c, s, line, "")
+}
+
+func lineWithPrefix(c *Context, s *Scope, line int, prefix string) {
 	if atomic.LoadUint32(&currentGoroutine) != c.goroutine {
 		return
 	}
@@ -156,22 +175,22 @@ func Line(c *Context, s *Scope) {
 		return
 	}
 	debuggerDepth = currentDepth
-	printLine()
-	waitForInput(s)
+	fmt.Print("-> ", prefix, strings.TrimSpace(s.fileText[line-1]), "\n") // token.Position.Line starts at 1.
+	waitForInput(s, line)
 }
 
 var skipNextElseIfExpr bool
 
 // ElseIfSimpleStmt marks a simple statement preceding an "else if" expression.
-func ElseIfSimpleStmt(c *Context, s *Scope, line string) {
-	SLine(c, s, line)
+func ElseIfSimpleStmt(c *Context, s *Scope, line int) {
+	Line(c, s, line)
 	if currentState == next {
 		skipNextElseIfExpr = true
 	}
 }
 
 // ElseIfExpr marks an "else if" expression.
-func ElseIfExpr(c *Context, s *Scope, line string) {
+func ElseIfExpr(c *Context, s *Scope, line int) {
 	if atomic.LoadUint32(&currentGoroutine) != c.goroutine {
 		return
 	}
@@ -179,21 +198,13 @@ func ElseIfExpr(c *Context, s *Scope, line string) {
 		skipNextElseIfExpr = false
 		return
 	}
-	SLine(c, s, line)
+	Line(c, s, line)
 }
 
-// SLine is like Line, except that the debugger should print the provided line rather than
-// reading the next line from the source code.
-func SLine(c *Context, s *Scope, line string) {
-	if atomic.LoadUint32(&currentGoroutine) != c.goroutine {
-		return
-	}
-	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
-		return
-	}
-	debuggerDepth = currentDepth
-	fmt.Println("->", line)
-	waitForInput(s)
+// Defer marks a defer statement. Intended to be run in a defer statement of its own
+// after the corresponding defer in the original source.
+func Defer(c *Context, s *Scope, line int) {
+	lineWithPrefix(c, s, line, "<Running deferred function>: ")
 }
 
 // SetTrace is the entrypoint to the debugger. The code generator converts
@@ -223,13 +234,14 @@ Commands:
     (n) next: Run the next line.
     (s) step: Run for one step.
     (c) continue: Run until the next breakpoint.
+    (l) list: Show the current line in context of the code around it.
     (p) print <var>: Print a variable.
 
 Commands may be given by their full name or by their parenthesized abbreviation.
 Any input that is not one of the above commands is interpreted as a variable name.
 `
 
-func waitForInput(scope *Scope) {
+func waitForInput(scope *Scope, line int) {
 	for {
 		fmt.Print("(godebug) ")
 		if !input.Scan() {
@@ -239,6 +251,9 @@ func waitForInput(scope *Scope) {
 		}
 		s := input.Text()
 		switch s {
+		case "h", "help":
+			fmt.Println(help)
+			continue
 		case "n", "next":
 			currentState = next
 			return
@@ -248,8 +263,8 @@ func waitForInput(scope *Scope) {
 		case "c", "continue":
 			currentState = run
 			return
-		case "h", "help":
-			fmt.Println(help)
+		case "l", "list":
+			printContext(scope.fileText, line, 4)
 			continue
 		}
 		if v, ok := scope.getVar(strings.TrimSpace(s)); ok {
@@ -272,49 +287,18 @@ func dereference(i interface{}) interface{} {
 	return reflect.ValueOf(i).Elem().Interface()
 }
 
-func printLine() {
-	_, file, line, ok := runtime.Caller(2)
-	if !ok {
-		fmt.Println("Hmm, something is broken. Failed to identify current source line.")
-		return
+func printContext(lines []string, line, contextCount int) {
+	line-- // token.Position.Line starts at 1.
+	fmt.Println()
+	for i := line - contextCount; i <= line+contextCount; i++ {
+		prefix := "    "
+		if i == line {
+			prefix = "--> "
+		}
+		if i >= 0 && i < len(lines) {
+			line := strings.TrimRightFunc(prefix+lines[i], unicode.IsSpace)
+			fmt.Println(line)
+		}
 	}
-	printLineFromFile(line, file)
-}
-
-var parsedFiles map[string][]string
-
-func init() {
-	parsedFiles = make(map[string][]string)
-}
-
-func printLineFromFile(line int, file string) {
-	f, ok := parsedFiles[file]
-	if !ok {
-		f = parseFile(file)
-		parsedFiles[file] = f
-	}
-	if line >= len(f) {
-		fmt.Printf("Hmm, something is broken. Current source line = %v, current file = %v, length of file = %v\n", line, file, len(f))
-		return
-	}
-	fmt.Println("->", f[line])
-}
-
-func parseFile(file string) []string {
-	f, err := os.Open(file)
-	if err != nil {
-		fmt.Println("Failed to open current source file:", err)
-		return nil
-	}
-	var lines []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := string(bytes.TrimSpace(scanner.Bytes()))
-		line = strings.Replace(line, "<-(<-_godebug_recover_chan_)", "recover()", -1)
-		lines = append(lines, line)
-	}
-	if err = scanner.Err(); err != nil {
-		fmt.Println("Error reading current source file:", err)
-	}
-	return lines
+	fmt.Println()
 }

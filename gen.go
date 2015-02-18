@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"go/printer"
 	"go/token"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"reflect"
@@ -93,13 +93,18 @@ func main() {
 			if strings.HasSuffix(fname, "/C") {
 				continue
 			}
+			b, err := ioutil.ReadFile(fname)
+			if err != nil {
+				fmt.Fprint(os.Stderr, "Error reading file:", err)
+				os.Exit(1)
+			}
+			quotedContents := rawQuote(string(b))
 			ast1, fs1 := parseCgoFile(fname)
 			if ast1 != nil {
 				f = ast1
 				fs = fs1
 			}
 			generateGodebugIdentifiers(f)
-			idents.fileScope = createFileScopeIdent(f)
 			for _, imp := range f.Imports {
 				if imp.Path.Value == `"github.com/mailgun/godebug/lib"` {
 					idents.godebug = "godebug"
@@ -127,15 +132,23 @@ func main() {
 					os.Exit(2)
 				}
 				defer file.Close()
-				out = &blankLineStripper{Writer: file}
+				out = file
 			}
-			cfg.Fprint(out, fs, f)
+			cfg.Fprint(&blankLineStripper{Writer: out}, fs, f)
+			fmt.Fprintln(out, "\nvar", idents.fileContents, "=", quotedContents)
 		}
 	}
 }
 
 func varDecl(specs ...ast.Spec) ast.Decl {
 	return &ast.GenDecl{Tok: token.VAR, Specs: specs}
+}
+
+func newInt(n int) *ast.BasicLit {
+	return &ast.BasicLit{
+		Kind:  token.INT,
+		Value: strconv.Itoa(n),
+	}
 }
 
 func newCallStmt(selector, fnName string, args ...ast.Expr) *ast.ExprStmt {
@@ -153,46 +166,6 @@ func newSel(selector, name string) *ast.SelectorExpr {
 		X:   ast.NewIdent(selector),
 		Sel: ast.NewIdent(name),
 	}
-}
-
-func createFileScopeIdent(f *ast.File) string {
-	ident := strings.Map(func(r rune) rune {
-		if !unicode.In(r, unicode.Digit, unicode.Letter) {
-			return '_'
-		}
-		return r
-	}, path.Base(fs.Position(f.Pos()).Filename)) + "Scope"
-	return createConflictFreeName(ident, f, false)
-}
-
-func getText(start, end token.Pos) (text string) {
-	f, err := os.Open(fs.Position(start).Filename)
-	if err != nil {
-		return "<< Error reading source >>"
-	}
-	defer f.Close()
-	startOffset, endOffset := fs.Position(start).Offset, fs.Position(end).Offset
-	buf := make([]byte, 1+endOffset-startOffset)
-	n, err := f.ReadAt(buf, int64(startOffset))
-	text = string(buf[:n])
-	if err != nil {
-		text += "<< Error reading source >>"
-	}
-	return
-}
-
-func getTextLine(start token.Pos) (text string) {
-	f, err := os.Open(fs.Position(start).Filename)
-	if err != nil {
-		return "<< Error reading source >>"
-	}
-	defer f.Close()
-	f.Seek(int64(fs.Position(start).Offset), 0)
-	scanner := bufio.NewScanner(f)
-	if !scanner.Scan() {
-		return "<< Error reading source >>"
-	}
-	return scanner.Text()
 }
 
 func isNewIdent(ident *ast.Ident) bool {
@@ -282,27 +255,27 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 	if body == nil {
 		return
 	}
-	text := getText(pos, body.Lbrace)
+	line := fs.Position(pos).Line
 	if len(v.newIdents) == 0 {
-		call := newCall(idents.godebug, "SLine", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(text)})
+		call := newCall(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(line))
 		body.List = append(body.List, &ast.ExprStmt{X: call})
 	} else {
 		body.List = append([]ast.Stmt{
-			astPrintf(`godebug.SLine(ctx, scope, %s)`, strconv.Quote(text))[0],
+			astPrintf(`godebug.Line(ctx, scope, %s)`, strconv.Itoa(line))[0],
 			newDeclareCall(idents.scope, v.newIdents),
 		}, body.List...)
 	}
 }
 
-func (v *visitor) ifElseCondWrap(cond ast.Expr, text string) ast.Expr {
+func (v *visitor) ifElseCondWrap(cond ast.Expr, pos token.Pos) ast.Expr {
 	return astPrintfExpr(`func() bool {
 		godebug.ElseIfExpr(ctx, %s, %s)
 		return %s
 	}()
-	`, v.scopeVar, strconv.Quote(text), cond)
+	`, v.scopeVar, strconv.Itoa(fs.Position(pos).Line), cond)
 }
 
-func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) ast.Expr {
+func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, pos token.Pos) ast.Expr {
 	results := make([]string, len(vars))
 	for i, expr := range vars {
 		ident, ok := expr.(*ast.Ident)
@@ -314,7 +287,7 @@ func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, text string) 
 	return astPrintfExpr(`func() (%s) {
 		godebug.ElseIfSimpleStmt(ctx, %s, %s)
 		return %s
-	}()`, strings.Join(results, ", "), v.scopeVar, strconv.Quote(text), vals)
+	}()`, strings.Join(results, ", "), v.scopeVar, strconv.Itoa(fs.Position(pos).Line), vals)
 }
 
 var blank = ast.NewIdent("_")
@@ -392,6 +365,44 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) (stmts []ast.Stm
 		recvType, outputs, pseudoIdent, inputs, ellipsis, outputs)
 }
 
+func genEnterFuncLit(fnType *ast.FuncType, body *ast.BlockStmt, hasRecovers bool) *ast.BlockStmt {
+	fn := createConflictFreeName("fn", fnType, false)
+	decl, outputs := inputsOrOutputs(fnType.Results, idents.result)
+	deferCloseQuit := ""
+	if hasRecovers {
+		deferCloseQuit = "defer close(quit)"
+	}
+	newBody := &ast.BlockStmt{}
+	if len(outputs) > 0 {
+		newBody.List = astPrintf(`
+				{{%s}}
+				{{%s}}
+				%s := func(ctx *godebug.Context) {
+					%s = func() (%s) {
+						%s
+					}()
+				}
+				if ctx, ok := godebug.EnterFuncLit(%s); ok {
+					defer godebug.ExitFunc(ctx)
+					%s(ctx)
+				}
+				return %s
+			`, deferCloseQuit, decl, fn, outputs, fnType.Results, body.List, fn, fn, outputs)
+	} else {
+		newBody.List = astPrintf(`
+				{{%s}}
+				%s := func(ctx *godebug.Context) {
+					%s
+				}
+				if ctx, ok := godebug.EnterFuncLit(%s); ok {
+					defer godebug.ExitFunc(ctx)
+					%s(ctx)
+				}
+				`, deferCloseQuit, fn, body.List, fn, fn)
+	}
+	return newBody
+}
+
 func newIdentsInSimpleStmt(stmt ast.Stmt) (idents []*ast.Ident) {
 	if assign, ok := stmt.(*ast.AssignStmt); ok {
 		idents = listNewIdentsFromAssign(assign)
@@ -413,13 +424,12 @@ func newIdentsInRange(_range *ast.RangeStmt) (idents []*ast.Ident) {
 }
 
 func (v *visitor) wrapLoop(node ast.Stmt, body *ast.BlockStmt) (block *ast.BlockStmt, loop ast.Stmt) {
-	text := getText(node.Pos(), body.Lbrace)
 	block = astPrintf(`
 		{
 			scope := %s.EnteringNewChildScope()
 			_ = scope // placeholder
-			godebug.SLine(ctx, scope, %s)
-		}`, v.scopeVar, strconv.Quote(text))[0].(*ast.BlockStmt)
+			godebug.Line(ctx, scope, %s)
+		}`, v.scopeVar, strconv.Itoa(fs.Position(node.Pos()).Line))[0].(*ast.BlockStmt)
 	block.List[1] = node
 	loop = node
 	return
@@ -427,8 +437,14 @@ func (v *visitor) wrapLoop(node ast.Stmt, body *ast.BlockStmt) (block *ast.Block
 
 func (v *visitor) finalizeNode() {
 	switch i := v.context.(type) {
+
 	case *ast.FuncDecl:
 		if i.Body == nil {
+			break
+		}
+		if v.hasRecovers {
+			i.Body = genEnterFuncLit(i.Type, i.Body, true)
+			rewriteFnWithRecovers(i.Body)
 			break
 		}
 		declOuts, outputs := inputsOrOutputs(i.Type.Results, idents.result)
@@ -442,71 +458,44 @@ func (v *visitor) finalizeNode() {
 		}
 
 		i.Body.List = append(prepend, i.Body.List...)
+
 	case *ast.FuncLit:
-		fn := createConflictFreeName("fn", i.Type, false)
-		decl, outputs := inputsOrOutputs(i.Type.Results, idents.result)
-		deferCloseQuit := ""
+		i.Body = genEnterFuncLit(i.Type, i.Body, v.hasRecovers)
 		if v.hasRecovers {
-			deferCloseQuit = "defer close(quit)"
+			rewriteFnWithRecovers(i.Body)
 		}
-		newBody := &ast.BlockStmt{}
-		if len(outputs) > 0 {
-			newBody.List = astPrintf(`
-				{{%s}}
-				{{%s}}
-				%s := func(ctx *godebug.Context) {
-					%s = func() (%s) {
-						%s
-					}()
-				}
-				if ctx, ok := godebug.EnterFuncLit(%s); ok {
-					defer godebug.ExitFunc(ctx)
-					%s(ctx)
-				}
-				return %s
-			`, deferCloseQuit, decl, fn, outputs, i.Type.Results, i.Body.List, fn, fn, outputs)
-		} else {
-			newBody.List = astPrintf(`
-				{{%s}}
-				%s := func(ctx *godebug.Context) {
-					%s
-				}
-				if ctx, ok := godebug.EnterFuncLit(%s); ok {
-					defer godebug.ExitFunc(ctx)
-					%s(ctx)
-				}
-				`, deferCloseQuit, fn, i.Body.List, fn, fn)
-		}
-		i.Body = newBody
+
 	case *ast.BlockStmt:
 		i.List = v.stmtBuf
+
 	case *ast.IfStmt:
 		if blk, ok := i.Else.(*ast.BlockStmt); ok {
-			elseText := getText(i.Body.End()-1, blk.Lbrace)
-			elseCall := newCall(idents.godebug, "SLine", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), &ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(elseText)})
+			elseCall := newCall(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(fs.Position(i.Else.Pos()).Line))
 			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
 		}
 		if ifstmt, ok := i.Else.(*ast.IfStmt); ok {
-			text := getText(i.Body.End()-1, ifstmt.Body.Pos())
 			switch d := ifstmt.Init.(type) {
 			case *ast.AssignStmt:
-				d.Rhs = []ast.Expr{v.ifElseInitWrap(d.Lhs, d.Rhs, text)}
+				d.Rhs = []ast.Expr{v.ifElseInitWrap(d.Lhs, d.Rhs, i.Else.Pos())}
 			case *ast.DeclStmt:
 				spec := d.Decl.(*ast.GenDecl).Specs[0].(*ast.ValueSpec)
 				exprs := make([]ast.Expr, len(spec.Names))
 				for i := range exprs {
 					exprs[i] = ast.Expr(spec.Names[i])
 				}
-				spec.Values = []ast.Expr{v.ifElseInitWrap(exprs, spec.Values, text)}
+				spec.Values = []ast.Expr{v.ifElseInitWrap(exprs, spec.Values, i.Else.Pos())}
 			// TODO: optimize nil case
 			default:
 			}
-			ifstmt.Cond = v.ifElseCondWrap(ifstmt.Cond, text)
+			ifstmt.Cond = v.ifElseCondWrap(ifstmt.Cond, i.Else.Pos())
 		}
+
 	case *ast.RangeStmt:
 		v.finalizeLoop(i.For, i.Body)
+
 	case *ast.ForStmt:
 		v.finalizeLoop(i.For, i.Body)
+
 	case *ast.File:
 		// Insert declaration of file-level godebug.Scope variable as first declaration in file.
 		var newDecls []ast.Decl
@@ -520,7 +509,7 @@ func (v *visitor) finalizeNode() {
 		}
 		newDecls = append(newDecls, varDecl(&ast.ValueSpec{
 			Names:  []*ast.Ident{ast.NewIdent(idents.fileScope)},
-			Values: []ast.Expr{newCall(idents.godebug, "EnteringNewScope")},
+			Values: []ast.Expr{newCall(idents.godebug, "EnteringNewScope", ast.NewIdent(idents.fileContents))},
 		}))
 		i.Decls = append(newDecls, i.Decls...)
 	}
@@ -539,25 +528,17 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			return nil
 		}
 		// If there is a call to recover() anywhere in this function, it needs some fairly elaborate treatment.
-		if didRewrite := rewriteRecoversIn(i.Body); didRewrite {
-			wrappedFn := rewriteFnWithRecovers(i.Body)
-			ast.Walk(&visitor{context: v.context, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: idents.fileScope, hasRecovers: true}, wrappedFn)
-			return nil
-		}
-		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: idents.fileScope}
+		didRewrite := rewriteRecoversIn(i.Body)
+		return &visitor{context: node, blockVars: getIdents(i.Recv, i.Type.Params, i.Type.Results), scopeVar: idents.fileScope, hasRecovers: didRewrite}
 
 	case *ast.FuncLit:
 		// If there is a call to recover() anywhere in this function, it needs some fairly elaborate treatment.
-		if didRewrite := rewriteRecoversIn(i.Body); didRewrite {
-			wrappedFn := rewriteFnWithRecovers(i.Body)
-			ast.Walk(&visitor{context: v.context, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar, hasRecovers: true}, wrappedFn)
-			return nil
-		}
-		return &visitor{context: node, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar, hasRecovers: v.hasRecovers}
+		didRewrite := rewriteRecoversIn(i.Body)
+		return &visitor{context: node, blockVars: getIdents(i.Type.Params, i.Type.Results), scopeVar: v.scopeVar, hasRecovers: didRewrite}
 
 	case *ast.BlockStmt:
 		if v.stmtBuf != nil {
-			v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar)))
+			v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(fs.Position(node.Pos()).Line)))
 			v.stmtBuf = append(v.stmtBuf, i)
 		}
 		w := &visitor{context: node, stmtBuf: make([]ast.Stmt, 0, 3*len(i.List)), scopeVar: v.scopeVar}
@@ -598,7 +579,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	}
 
 	if !isSetTraceCall(node) {
-		v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar)))
+		v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(fs.Position(node.Pos()).Line)))
 	}
 
 	// Copy the statement into the new block we are building.
@@ -631,9 +612,8 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	}
 
 	// If this is a defer statement, defer another function right after it that will let the user step into it if they wish.
-	if def, ok := node.(*ast.DeferStmt); ok {
-		text := strconv.Quote("<Running deferred function>: " + getTextLine(def.Pos()))
-		v.stmtBuf = append(v.stmtBuf, astPrintf(`defer godebug.SLine(ctx, %s, %s)`, v.scopeVar, text)[0])
+	if _, isDefer := node.(*ast.DeferStmt); isDefer {
+		v.stmtBuf = append(v.stmtBuf, astPrintf(`defer godebug.Defer(ctx, %s, %s)`, v.scopeVar, strconv.Itoa(fs.Position(node.Pos()).Line))[0])
 	}
 
 	if _if, ok := node.(*ast.IfStmt); ok {
@@ -693,7 +673,7 @@ func (v *visitor) createScope() {
 }
 
 var idents struct {
-	ctx, ok, scope, receiver, fileScope, godebug, result, input string
+	ctx, ok, scope, receiver, fileScope, fileContents, godebug, result, input string
 }
 
 func generateGodebugIdentifiers(f *ast.File) {
@@ -709,6 +689,16 @@ func generateGodebugIdentifiers(f *ast.File) {
 	// Variables that will have suffixes.
 	idents.result = createConflictFreeName("result", f, true)
 	idents.input = createConflictFreeName("input", f, true)
+
+	// Variables with names derived from the filename.
+	base := strings.Map(func(r rune) rune {
+		if !unicode.In(r, unicode.Digit, unicode.Letter) {
+			return '_'
+		}
+		return r
+	}, path.Base(fs.Position(f.Pos()).Filename))
+	idents.fileScope = createConflictFreeName(base+"_scope", f, false)
+	idents.fileContents = createConflictFreeName(base+"_contents", f, false)
 }
 
 func createConflictFreeName(name string, parent ast.Node, hasSuffix bool) string {
@@ -799,6 +789,7 @@ func (v *recoverVisitor) Visit(node ast.Node) ast.Visitor {
 
 func rewriteRecoverCall(parent, _recover ast.Node) {
 	rewritten := astPrintfExpr("<-(<-_godebug_recover_chan_)")
+	rewritten.(*ast.UnaryExpr).OpPos = _recover.Pos()
 	v := reflect.ValueOf(parent).Elem()
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)

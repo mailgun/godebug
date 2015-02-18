@@ -36,9 +36,10 @@ The current commands are:
 command       | result
 --------------|------------------------
 h(elp)        | show help message
-n(ext)        | run until the next line
+n(ext)        | run the next line
 s(tep)        | run for one step
 c(ontinue)    | run until the next breakpoint
+l(ist)        | show the current line in context of the code around it
 p(rint) [var] | print a variable
 
 The debugger will attempt to interpret any text that does not match the above commands as a variable name. If that variable exists, the debugger will print it.
