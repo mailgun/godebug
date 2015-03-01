@@ -51,13 +51,11 @@ func main() {
 	foo := "hello"
 	__scope := name_conflicts_in_go_scope.EnteringNewChildScope()
 	__scope.Declare("foo", &foo)
-	_godebug.Line(_ctx, __scope, 23)
 	{
 		_godebug.Line(_ctx, __scope, 24)
 		scope := 3
 		__scope := __scope.EnteringNewChildScope()
 		__scope.Declare("scope", &scope)
-		_godebug.Line(_ctx, __scope, 25)
 		{
 			_godebug.Line(_ctx, __scope, 26)
 			godebug.Println(2)

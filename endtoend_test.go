@@ -139,7 +139,7 @@ func runGolden(t *testing.T, test string, s *session) {
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 	if err := cmd.Run(); err != nil {
-		t.Errorf("Golden file failed to run: %v\n%s", err, buf.Bytes())
+		t.Errorf("Golden file %s-out.go failed to run: %v\n%s", test, err, buf.Bytes())
 	}
 	if s != nil {
 		checkOutput(t, s, buf.Bytes())

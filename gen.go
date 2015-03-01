@@ -158,6 +158,14 @@ func newInt(n int) *ast.BasicLit {
 	}
 }
 
+func newReceiveCase(x ast.Expr) *ast.CommClause {
+	return &ast.CommClause{
+		Comm: &ast.ExprStmt{
+			X: &ast.UnaryExpr{
+				Op: token.ARROW,
+				X:  x}}}
+}
+
 func newCallStmt(selector, fnName string, args ...ast.Expr) *ast.ExprStmt {
 	return &ast.ExprStmt{
 		X: newCall(selector, fnName, args...),
@@ -526,6 +534,10 @@ func (v *visitor) finalizeNode() {
 	case *ast.ForStmt:
 		v.finalizeLoop(i.For, i.Body)
 
+	case *ast.SelectStmt:
+		i.Body.List = append(i.Body.List, newReceiveCase(
+			newCall(idents.godebug, "EndSelect", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope))))
+
 	case *ast.File:
 		// Insert declaration of file-level godebug.Scope variable as first declaration in file.
 		var newDecls []ast.Decl
@@ -542,6 +554,17 @@ func (v *visitor) finalizeNode() {
 			Values: []ast.Expr{newCall(idents.godebug, "EnteringNewScope", ast.NewIdent(idents.fileContents))},
 		}))
 		i.Decls = append(newDecls, i.Decls...)
+	}
+}
+
+func stopAtBlockIn(node ast.Node) bool {
+	// This is intended to determine whether pausing at the beginning of a block statement will or will not produce
+	// something more interesting than "{" on its own line. Hasn't been thought through very carefully.
+	switch node.(type) {
+	case *ast.BlockStmt:
+		return false
+	default:
+		return true
 	}
 }
 
@@ -572,7 +595,9 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 
 	case *ast.BlockStmt:
 		if v.stmtBuf != nil {
-			v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(node.Pos()))))
+			if stopAtBlockIn(v.context) {
+				v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(node.Pos()))))
+			}
 			v.stmtBuf = append(v.stmtBuf, i)
 		}
 		childVisitor.stmtBuf = make([]ast.Stmt, 0, 3*len(i.List))
@@ -607,11 +632,34 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			i.Body = append([]ast.Stmt{newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(i.Pos())))}, i.Body...)
 		}
 		return nil
-	// TODO: Wrap these clauses the same way as if-else clauses.
-	case *ast.CommClause:
-		v.stmtBuf = append(v.stmtBuf, i)
+
+	case *ast.SelectStmt:
+		v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Select", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(node.Pos()))), i)
 		return childVisitor
 
+	case *ast.CommClause:
+		// Mark this case with a godebug.Comm call if it's not the default.
+		if i.Comm != nil { // nil means default case
+			v.stmtBuf = append(v.stmtBuf, newReceiveCase(newCall(idents.godebug, "Comm", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope), newInt(pos2line(i.Pos())))))
+		}
+
+		// Manually walk its descendants.
+		v.stmtBuf = append(v.stmtBuf, i)
+		childVisitor.Visit(i.Comm)
+		childVisitor.stmtBuf = make([]ast.Stmt, 0, 3*len(i.Body))
+
+		// Declare any new variables.
+		if newIdents := newIdentsInSimpleStmt(i.Comm); newIdents != nil {
+			childVisitor.createScope()
+			childVisitor.stmtBuf = append(childVisitor.stmtBuf, newDeclareCall(childVisitor.scopeVar, newIdents))
+		}
+
+		for _, node := range i.Body {
+			childVisitor.Visit(node)
+		}
+		i.Body = append([]ast.Stmt{newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope), newInt(pos2line(i.Pos())))}, childVisitor.stmtBuf...)
+
+		return nil
 	}
 
 	// The code below is about inserting debug calls. Skip it if we're not in a context where that makes sense.

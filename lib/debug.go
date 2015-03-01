@@ -171,16 +171,47 @@ func Case(c *Context, s *Scope, line int) interface{} {
 	return caseSentinel(0)
 }
 
+// Comm marks a case in a select statement.
+// It returns a nil channel to read from as a new case immediately before the case it is marking.
+func Comm(c *Context, s *Scope, line int) chan struct{} {
+	Line(c, s, line)
+	return nil
+}
+
+// EndSelect marks the end of a select statement.
+// It returns a nil channel to read from as the last case of that select statement.
+func EndSelect(c *Context, s *Scope) chan struct{} {
+	if shouldPause(c) {
+		fmt.Println("< All channel expressions evaluated. Choosing case to proceed. >")
+	}
+	return nil
+}
+
+// Select marks a select statement.
+func Select(c *Context, s *Scope, line int) {
+	if !shouldPause(c) {
+		return
+	}
+	Line(c, s, line)
+	// Assumes the debugger hasn't switched goroutines. Valid assumption now,
+	// will probably change in the future.
+	if currentState != run {
+		fmt.Println("< Evaluating channel expressions and RHS of send expressions. >")
+	}
+}
+
 // Line marks a normal line where the debugger might pause.
 func Line(c *Context, s *Scope, line int) {
 	lineWithPrefix(c, s, line, "")
 }
 
+func shouldPause(c *Context) bool {
+	return atomic.LoadUint32(&currentGoroutine) == c.goroutine &&
+		(currentState == step || (currentState == next && currentDepth == debuggerDepth))
+}
+
 func lineWithPrefix(c *Context, s *Scope, line int, prefix string) {
-	if atomic.LoadUint32(&currentGoroutine) != c.goroutine {
-		return
-	}
-	if currentState == run || (currentState == next && currentDepth != debuggerDepth) {
+	if !shouldPause(c) {
 		return
 	}
 	debuggerDepth = currentDepth
