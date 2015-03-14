@@ -20,19 +20,18 @@ func main() {
 	if x == 4 {
 		godebug.Line(ctx, scope, 14)
 		fmt.Println("It works! x == 4.")
-	} else if n := func() int {
-		godebug.ElseIfSimpleStmt(ctx, scope, 15)
-		return 2
-	}(); func() bool {
-		godebug.ElseIfExpr(ctx, scope, 15)
-		return n == 3
-	}() {
-		godebug.Line(ctx, scope, 16)
-		fmt.Println("Math is broken. Ah!")
 	} else {
-		godebug.Line(ctx, scope, 17)
-		godebug.Line(ctx, scope, 18)
-		fmt.Println("What's going on? x ==", x)
+		godebug.ElseIfSimpleStmt(ctx, scope, 15)
+		n := 2
+		godebug.ElseIfExpr(ctx, scope, 15)
+		if n == 3 {
+			godebug.Line(ctx, scope, 16)
+			fmt.Println("Math is broken. Ah!")
+		} else {
+			godebug.Line(ctx, scope, 17)
+			godebug.Line(ctx, scope, 18)
+			fmt.Println("What's going on? x ==", x)
+		}
 	}
 }
 func add(n, m int) int {

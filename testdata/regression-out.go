@@ -2,8 +2,8 @@ package main
 import "github.com/mailgun/godebug/lib"
 var regression_in_go_scope = godebug.EnteringNewScope(regression_in_go_contents)
 func main() {
-	ctx, ok := godebug.EnterFunc(main)
-	if !ok {
+	ctx, _ok := godebug.EnterFunc(main)
+	if !_ok {
 		return
 	}
 	godebug.Line(ctx, regression_in_go_scope, 5)
@@ -17,7 +17,7 @@ func main() {
 				return i
 			}()
 		}
-		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+		if ctx, _ok := godebug.EnterFuncLit(fn); _ok {
 			defer godebug.ExitFunc(ctx)
 			fn(ctx)
 		}
@@ -46,7 +46,7 @@ func main() {
 			godebug.Line(ctx, scope, 19)
 			c <- true
 		}
-		if ctx, ok := godebug.EnterFuncLit(fn); ok {
+		if ctx, _ok := godebug.EnterFuncLit(fn); _ok {
 			defer godebug.ExitFunc(ctx)
 			fn(ctx)
 		}
@@ -58,15 +58,28 @@ func main() {
 	defer godebug.Defer(ctx, scope, 24)
 	godebug.Line(ctx, scope, 27)
 	if false {
-	} else if s := func() string {
+	} else {
 		godebug.ElseIfSimpleStmt(ctx, scope, 28)
-		return "hello"
-	}(); func() bool {
+		s := "hello"
 		godebug.ElseIfExpr(ctx, scope, 28)
-		return s == "hello"
-	}() {
-		godebug.Line(ctx, scope, 29)
-		println(s)
+		if s == "hello" {
+			godebug.Line(ctx, scope, 29)
+			println(s)
+		}
+	}
+	godebug.Line(ctx, scope, 33)
+	m := map[string]int{"test": 5}
+	scope.Declare("m", &m)
+	godebug.Line(ctx, scope, 34)
+	if false {
+	} else {
+		godebug.ElseIfSimpleStmt(ctx, scope, 35)
+		_, ok := m["test"]
+		godebug.ElseIfExpr(ctx, scope, 35)
+		if ok {
+			godebug.Line(ctx, scope, 36)
+			println("test")
+		}
 	}
 }
 
@@ -99,6 +112,13 @@ func main() {
 	if false {
 	} else if s := "hello"; s == "hello" {
 		println(s)
+	}
+
+	// Comma-ok in else-if
+	m := map[string]int{"test": 5}
+	if false {
+	} else if _, ok := m["test"]; ok {
+		println("test")
 	}
 }
 `

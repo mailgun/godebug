@@ -291,29 +291,6 @@ func (v *visitor) finalizeLoop(pos token.Pos, body *ast.BlockStmt) {
 	}
 }
 
-func (v *visitor) ifElseCondWrap(cond ast.Expr, pos token.Pos) ast.Expr {
-	return astPrintfExpr(`func() bool {
-		godebug.ElseIfExpr(ctx, %s, %s)
-		return %s
-	}()
-	`, v.scopeVar, pos2lineString(pos), cond)
-}
-
-func (v *visitor) ifElseInitWrap(vars []ast.Expr, vals []ast.Expr, pos token.Pos) ast.Expr {
-	results := make([]string, len(vars))
-	for i, expr := range vars {
-		ident, ok := expr.(*ast.Ident)
-		if !ok {
-			panic(fmt.Sprintf("Unsupported type in if statement initializer: %T. Sorry! Let me (jeremy@mailgunhq.com) know about this and I'll fix it.", expr))
-		}
-		results[i] = types.TypeString(pkg, defs[ident].Type())
-	}
-	return astPrintfExpr(`func() (%s) {
-		godebug.ElseIfSimpleStmt(ctx, %s, %s)
-		return %s
-	}()`, strings.Join(results, ", "), v.scopeVar, pos2lineString(pos), vals)
-}
-
 var blank = ast.NewIdent("_")
 
 func inputsOrOutputs(fieldList *ast.FieldList, prefix string) (decl []ast.Stmt, all []ast.Expr) {
@@ -512,20 +489,40 @@ func (v *visitor) finalizeNode() {
 			blk.List = append([]ast.Stmt{&ast.ExprStmt{X: elseCall}}, blk.List...)
 		}
 		if ifstmt, ok := i.Else.(*ast.IfStmt); ok {
-			switch d := ifstmt.Init.(type) {
-			case *ast.AssignStmt:
-				d.Rhs = []ast.Expr{v.ifElseInitWrap(d.Lhs, d.Rhs, i.Else.Pos())}
-			case *ast.DeclStmt:
-				spec := d.Decl.(*ast.GenDecl).Specs[0].(*ast.ValueSpec)
-				exprs := make([]ast.Expr, len(spec.Names))
-				for i := range exprs {
-					exprs[i] = ast.Expr(spec.Names[i])
-				}
-				spec.Values = []ast.Expr{v.ifElseInitWrap(exprs, spec.Values, i.Else.Pos())}
-			// TODO: optimize nil case
-			default:
+			// We have something that looks like:
+			//
+			//   if cond {
+			//       doThing()
+			//   } else if cond2 {
+			//       doOtherThing()
+			//   }
+			//
+			// Change it to this:
+			//
+			//   if cond {
+			//       doThing()
+			//   } else {
+			//       if cond2 {
+			//           doOtherThing()
+			//       }
+			//   }
+			//
+			// (plus debugging instrumentation)
+			var list []ast.Stmt
+
+			// Handle initializer, if it exists.
+			if ifstmt.Init != nil {
+				list = append(list, newCallStmt(idents.godebug, "ElseIfSimpleStmt", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope), newInt(pos2line(ifstmt.Init.Pos()))))
+				list = append(list, ifstmt.Init)
+				ifstmt.Init = nil
 			}
-			ifstmt.Cond = v.ifElseCondWrap(ifstmt.Cond, i.Else.Pos())
+
+			// Handle expression.
+			list = append(list, newCallStmt(idents.godebug, "ElseIfExpr", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope), newInt(pos2line(ifstmt.Cond.Pos()))))
+			list = append(list, ifstmt)
+
+			// Swap in the new block.
+			i.Else = &ast.BlockStmt{List: list}
 		}
 
 	case *ast.RangeStmt:

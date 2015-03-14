@@ -28,4 +28,11 @@ func main() {
 	} else if s := "hello"; s == "hello" {
 		println(s)
 	}
+
+	// Comma-ok in else-if
+	m := map[string]int{"test": 5}
+	if false {
+	} else if _, ok := m["test"]; ok {
+		println("test")
+	}
 }
