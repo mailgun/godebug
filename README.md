@@ -50,29 +50,33 @@ The debugger will attempt to interpret any text that does not match the above co
 
 Consider this program:
 
-    package main
+```go
+package main
 
-    import "fmt"
+import "fmt"
 
-    func main() {
-        fmt.Println("Hello, world!")
-    }
+func main() {
+    fmt.Println("Hello, world!")
+}
+```
 
 Now let's modify it a bit:
 
-    package main
+```go
+package main
 
-    import (
-        "bufio"
-        "fmt"
-        "os"
-    )
+import (
+    "bufio"
+    "fmt"
+    "os"
+)
 
-    func main() {
-        fmt.Println(`-> fmt.Println("Hello, world!")`)
-        bufio.NewScanner(os.Stdin).Scan()
-        fmt.Println("Hello, world!")
-    }
+func main() {
+    fmt.Println(`-> fmt.Println("Hello, world!")`)
+    bufio.NewScanner(os.Stdin).Scan()
+    fmt.Println("Hello, world!")
+}
+```
 
 When we run this modified version, we see:
 
