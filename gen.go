@@ -575,6 +575,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		return nil
 
 	case *ast.FuncDecl:
+		// TODO: Warning if user tries to put a breakpoint in init.
 		// Don't output debugging calls for init functions or empty functions.
 		if i.Name.Name == "init" && i.Recv == nil || i.Body == nil || len(i.Body.List) == 0 {
 			return nil
