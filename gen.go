@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -25,24 +24,12 @@ import (
 	_ "golang.org/x/tools/go/gccgoimporter"
 )
 
-var w = flag.Bool("w", false, "write result to (source) file instead of stdout")
-
 var (
 	defs   map[*ast.Ident]types.Object
 	_types map[ast.Expr]types.TypeAndValue
 	fs     *token.FileSet
 	pkg    *types.Package
 )
-
-// Usage is a replacement usage function for the flags package.
-func Usage() {
-	fmt.Fprintf(os.Stderr, "Usage of %s:\n\n", os.Args[0])
-	fmt.Fprintf(os.Stderr, "godebug <flags> <args>\n\n")
-	fmt.Fprintf(os.Stderr, "flags:\n")
-	flag.PrintDefaults()
-	fmt.Fprint(os.Stderr, loader.FromArgsUsage)
-	os.Exit(2)
-}
 
 type blankLineStripper struct {
 	io.Writer
@@ -54,7 +41,7 @@ func (w *blankLineStripper) Write(p []byte) (n int, err error) {
 	w.buf.Reset()
 	for _, b := range p {
 		if !(w.lastWasNewline && b == '\n') {
-			w.buf.WriteByte(b)
+			_ = w.buf.WriteByte(b) // error is always nil
 		}
 		w.lastWasNewline = b == '\n'
 	}
@@ -63,26 +50,7 @@ func (w *blankLineStripper) Write(p []byte) (n int, err error) {
 	return n + nn, err
 }
 
-func main() {
-	flag.Parse()
-	flag.Usage = Usage
-	var conf loader.Config
-	rest, err := conf.FromArgs(flag.Args(), true)
-	if len(rest) > 0 {
-		fmt.Fprintf(os.Stderr, "Unrecognized arguments:\n%v\n\n", strings.Join(rest, "\n"))
-	}
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error identifying packages: %v\n\n", err)
-	}
-	if len(rest) > 0 || err != nil {
-		flag.Usage()
-	}
-	conf.SourceImports = true
-	prog, err := conf.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading packages: %v\n\n", err)
-		flag.Usage()
-	}
+func generate(prog *loader.Program, writerFor func(filename string) io.WriteCloser) {
 	for _, pkgInfo := range prog.InitialPackages() {
 		defs = pkgInfo.Defs
 		_types = pkgInfo.Types
@@ -105,18 +73,6 @@ func main() {
 				fs = fs1
 			}
 			generateGodebugIdentifiers(f)
-			for _, imp := range f.Imports {
-				if imp.Path.Value == `"github.com/mailgun/godebug/lib"` {
-					idents.godebug = "godebug"
-					if imp.Name != nil {
-						idents.godebug = imp.Name.Name
-					}
-					break
-				}
-			}
-			if idents.godebug == "" {
-				idents.godebug = createConflictFreeName("godebug", f, false)
-			}
 			ast.Walk(&visitor{context: f, scopeVar: idents.fileScope}, f)
 			importName := idents.godebug
 			if importName == "godebug" {
@@ -124,17 +80,9 @@ func main() {
 			}
 			astutil.AddNamedImport(fs, f, importName, "github.com/mailgun/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-			var out io.Writer = os.Stdout
-			if *w {
-				file, err := os.Create(fs.Position(f.Pos()).Filename)
-				if err != nil {
-					fmt.Println(err)
-					os.Exit(2)
-				}
-				defer file.Close()
-				out = file
-			}
-			cfg.Fprint(&blankLineStripper{Writer: out}, fs, f)
+			out := writerFor(fs.Position(f.Pos()).Filename)
+			defer out.Close()
+			_ = cfg.Fprint(&blankLineStripper{Writer: out}, fs, f)
 			fmt.Fprintln(out, "\nvar", idents.fileContents, "=", quotedContents)
 		}
 	}
@@ -779,6 +727,21 @@ var idents struct {
 	ctx, ok, scope, receiver, fileScope, fileContents, godebug, result, input string
 }
 
+func generateGodebugPkgName(f *ast.File) {
+	for _, imp := range f.Imports {
+		if imp.Path.Value == `"github.com/mailgun/godebug/lib"` {
+			idents.godebug = "godebug"
+			if imp.Name != nil {
+				idents.godebug = imp.Name.Name
+			}
+			break
+		}
+	}
+	if idents.godebug == "" {
+		idents.godebug = createConflictFreeName("godebug", f, false)
+	}
+}
+
 func generateGodebugIdentifiers(f *ast.File) {
 	// Variables that won't have suffixes.
 	idents.ctx = createConflictFreeName("ctx", f, false)
@@ -786,8 +749,7 @@ func generateGodebugIdentifiers(f *ast.File) {
 	idents.scope = createConflictFreeName("scope", f, false)
 	idents.receiver = createConflictFreeName("receiver", f, false)
 
-	// godebug is set elsewhere.
-	//idents.godebug = createConflictFreeName("godebug", f, false)
+	generateGodebugPkgName(f)
 
 	// Variables that will have suffixes.
 	idents.result = createConflictFreeName("result", f, true)
@@ -901,9 +863,9 @@ func rewriteRecoverCall(parent, _recover ast.Node) {
 			return
 		}
 		if f.Kind() == reflect.Slice {
-			for i := 0; i < f.Len(); i++ {
-				if f.Index(i).Interface() == _recover {
-					f.Index(i).Set(reflect.ValueOf(rewritten))
+			for j := 0; j < f.Len(); j++ {
+				if f.Index(j).Interface() == _recover {
+					f.Index(j).Set(reflect.ValueOf(rewritten))
 				}
 			}
 		}

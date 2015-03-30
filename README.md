@@ -20,15 +20,35 @@ For more detail, see the [end of this README](#how-it-works-more-detail).
     $ go get github.com/mailgun/godebug
 
 
-### Use:
+### Getting started:
+
+If the code you want to debug is in package main, using godebug is very straightforward.
+
+First, insert this breakpoint anywhere in a (main) source file you want to debug:
+
+    godebug.SetTrace()
+
+You'll need to import the godebug package there, too:
+
+    import "github.com/mailgun/godebug/lib"
+
+Then just run your code using the godebug tool:
+
+    $ godebug run gofiles... [arguments...]
+
+And that's it!
+
+#### Generating code manually:
+
+But, of course, not all code lives in package main. While commands `godebug build` and `godebug test` are coming soon, for now you will have to generate the source code yourself and use `go build` or `go test` on the result.
 
 First, get your directory in a clean state. **The command below will overwrite your files, so make sure you have committed or stashed everything.**
 
-In any file where you want a breakpoint, import `github.com/mailgun/godebug/lib` and insert this breakpoint anywhere in the code: `godebug.SetTrace()`. Then run:
+In any file where you want a breakpoint, import `github.com/mailgun/godebug/lib` and insert this `godebug.SetTrace()` as above. Then run:
 
     $ godebug -w .
 
-Your code is now self-debugging. Congrats! Run it with `go run`, test it with `go test`, or build then run it with `go build`.
+Your code is now self-debugging. Run it with `go run`, test it with `go test`, or build then run it with `go build`.
 
 
 ### Debugger commands:

@@ -1,0 +1,1 @@
+This directory represents an example filesystem, used for testing. When tests are run on this filesystem, the $GOPATH environment variable is set to the `gopath` subdirectory. The other files and directories here live outside of the testing $GOPATH, and are used to check how `godebug` handles them.

@@ -2,6 +2,8 @@ package main
 
 // Partially modeled after golang.org/x/tools/cmd/stringer/endtoendtest.go
 
+// This file runs tests in the testdata/single-file-tests directory
+
 import (
 	"bufio"
 	"bytes"
@@ -13,33 +15,42 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/kylelemons/godebug/diff"
 )
 
 var (
-	files         = flag.String("files", "", `Comma-separated list of files in the testdata directory to check. e.g. "example,name-conflicts". If not set, all of them will be checked.`)
+	files         = flag.String("files", "", `Comma-separated list of files in the testdata/single-file-tests directory to check. e.g. "example,name-conflicts". If not set, all of them will be checked.`)
 	accept        = flag.Bool("accept", false, "Accept the output of the program as the new golden file.")
 	acceptSession = flag.Bool("accept-session", false, "If a *-session.txt file exists for a given test, accept any differences from running a new session and overwrite the file.")
 )
 
-func TestGoldenFiles(t *testing.T) {
+func compileGodebug(t *testing.T) (filename string) {
 	f, err := ioutil.TempFile("", "godebug")
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.Close()
 	godebug := f.Name()
-	defer os.Remove(godebug)
 	cmd := exec.Command("go", "build", "-o", godebug)
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
+		os.Remove(godebug)
 		t.Fatal("failed to build godebug:", err)
 	}
+	return godebug
+}
+
+func TestGoldenFiles(t *testing.T) {
+	godebug := compileGodebug(t)
+	defer os.Remove(godebug)
+
 	// Read the testdata directory
-	fd, err := os.Open("testdata")
+	dirname := filepath.FromSlash("testdata/single-file-tests")
+	fd, err := os.Open(dirname)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,24 +92,47 @@ func TestGoldenFiles(t *testing.T) {
 	for name := range skipped {
 		fmt.Printf("Skipping golden test %q\n", name)
 	}
+	var wg sync.WaitGroup
+	wg.Add(len(tests))
 	for test := range tests {
-		compareGolden(t, godebug, test)
-		goldenSessions := sessions[test]
-		if len(goldenSessions) == 0 {
-			runGolden(t, test, nil)
-		}
-		for _, filename := range goldenSessions {
-			runGolden(t, test, parseSession(t, filename))
-		}
+		go func(test string) {
+			defer wg.Done()
+			oneTest(t, godebug, test, dirname, sessions[test])
+		}(test)
 	}
+	wg.Wait()
+}
+
+func oneTest(t *testing.T, godebug, test, dirname string, goldenSessions []string) {
+	compareGolden(t, godebug, test)
+	if len(goldenSessions) == 0 {
+		runGolden(t, test, nil)
+	}
+	var wg sync.WaitGroup
+	wg.Add(len(goldenSessions))
+	for _, filename := range goldenSessions {
+		go func(filename string) {
+			defer wg.Done()
+			runGolden(t, test, parseSession(t, filepath.Join(dirname, filename)))
+		}(filename)
+	}
+	wg.Wait()
+}
+
+func goldenOutput(testName string) (filename string) {
+	return filepath.Join("testdata", "single-file-tests", testName+"-out.go")
+}
+
+func testInput(testName string) (filename string) {
+	return filepath.Join("testdata", "single-file-tests", testName+"-in.go")
 }
 
 func compareGolden(t *testing.T, godebug, test string) {
-	golden, err := ioutil.ReadFile(filepath.Join("testdata", test+"-out.go"))
+	golden, err := ioutil.ReadFile(goldenOutput(test))
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(godebug, filepath.Join("testdata", test+"-in.go"))
+	cmd := exec.Command(godebug, "output", testInput(test))
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = os.Stderr
@@ -108,12 +142,12 @@ func compareGolden(t *testing.T, godebug, test string) {
 	}
 	if !bytes.Equal(buf.Bytes(), golden) {
 		if *accept {
-			if err = ioutil.WriteFile(filepath.Join("testdata", test+"-out.go"), buf.Bytes(), 0644); err != nil {
+			if err = ioutil.WriteFile(goldenOutput(test), buf.Bytes(), 0644); err != nil {
 				t.Fatal(err)
 			}
 			return
 		}
-		diff := getDiff(filepath.Join("testdata", test+"-out.go"), buf.Bytes())
+		diff := getDiff(goldenOutput(test), buf.Bytes())
 		fmt.Println(buf.String())
 		t.Errorf("%s: got != want. Diff:\n%s", test, diff)
 	}
@@ -126,13 +160,19 @@ type session struct {
 	// A transcript of the session as it would appear if run interactively in a terminal.
 	fullSession []byte
 
-	// The filename of this session inside testdata/
+	// The filename of this session inside testdata/single-file-tests/.
 	filename string
+
+	// The directory to change to before running cmd.
+	workingDir string
+
+	// The command to run. The first element must be "godebug".
+	cmd []string
 }
 
 func runGolden(t *testing.T, test string, s *session) {
 	var buf bytes.Buffer
-	cmd := exec.Command("go", "run", filepath.Join("testdata", test+"-out.go"))
+	cmd := exec.Command("go", "run", goldenOutput(test))
 	if s != nil {
 		cmd.Stdin = bytes.NewReader(s.input)
 	}
@@ -147,20 +187,21 @@ func runGolden(t *testing.T, test string, s *session) {
 }
 
 func checkOutput(t *testing.T, want *session, output []byte) {
-	fmt.Println("checking", want.filename)
+	testName := filepath.Base(want.filename)
+	fmt.Println("checking", testName)
 	got := interleaveCommands(want.input, output)
 	if bytes.Equal(got, want.fullSession) {
 		return
 	}
 
 	if *acceptSession {
-		if err := ioutil.WriteFile(filepath.Join("testdata", want.filename), got, 0644); err != nil {
+		if err := ioutil.WriteFile(want.filename, got, 0644); err != nil {
 			t.Fatal(err)
 		}
 		return
 	}
 
-	t.Errorf("%s: Session did not match. Diff:\n%v", want.filename, diff.Diff(string(want.fullSession), string(got)))
+	t.Errorf("%s: Session did not match. Diff:\n%v", testName, diff.Diff(string(want.fullSession), string(got)))
 }
 
 var prompt = []byte("(godebug) ")
@@ -170,6 +211,9 @@ var prompt = []byte("(godebug) ")
 // input only happens after prompts.
 func interleaveCommands(input, output []byte) (combined []byte) {
 	linesIn := bytes.Split(bytes.TrimSpace(input), []byte("\n"))
+	if len(input) == 0 {
+		linesIn = nil
+	}
 	linesOut := bytes.Split(output, []byte("\n"))
 	var in, out int
 	for ; out < len(linesOut); out++ {
@@ -199,36 +243,64 @@ func interleaveCommands(input, output []byte) (combined []byte) {
 }
 
 func parseSession(t *testing.T, filename string) *session {
-	f, err := os.Open(filepath.Join("testdata", filename))
+	f, err := os.Open(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
 
-	fileCommentOk := true
+	var s session
+	s.filename = filename
 
-	var input, fullSession []byte
+	scanSessionComment(t, scanner, &s, filename)
 
-	for scanner.Scan() {
+	for {
 		b := append(scanner.Bytes(), '\n')
 
-		// Scan past top of file comment. The top of file comment consists of any number of consecutive
-		// lines that are either blank or begin with the string "//".
-		if fileCommentOk && (bytes.HasPrefix(b, []byte("//")) || len(b) == 1) {
-			continue
-		}
-		fileCommentOk = false
-
 		if bytes.HasPrefix(b, prompt) {
-			input = append(input, b[len(prompt):]...)
+			s.input = append(s.input, b[len(prompt):]...)
 		}
-		fullSession = append(fullSession, b...)
+		s.fullSession = append(s.fullSession, b...)
+
+		if !scanner.Scan() {
+			break
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
-	return &session{input, fullSession, filename}
+	return &s
+}
+
+// Scan past top of file comment. The top of file comment consists of any number of consecutive
+// lines that are either blank or begin with the string "//".
+// The comment may include "dir:" or "cmd:" directives, which we parse here.
+func scanSessionComment(t *testing.T, scanner *bufio.Scanner, s *session, filename string) {
+	i := 0
+	for scanner.Scan() {
+		i++
+		b := scanner.Bytes()
+		if len(b) == 0 {
+			continue
+		}
+		if !bytes.HasPrefix(b, []byte("//")) {
+			break
+		}
+		b = bytes.TrimSpace(b[2:])
+		if bytes.HasPrefix(b, []byte("dir:")) {
+			s.workingDir = string(bytes.TrimSpace(b[4:]))
+		}
+		if bytes.HasPrefix(b, []byte("cmd:")) {
+			s.cmd = strings.Split(strings.TrimSpace(string(b[4:])), " ")
+			if len(s.cmd) < 1 || s.cmd[0] != "godebug" {
+				t.Fatalf("%s:%d The command listed in the session file must start with 'godebug'.", filename, i)
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func getDiff(filename string, inBuf []byte) []byte {

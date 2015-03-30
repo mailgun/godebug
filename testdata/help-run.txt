@@ -1,0 +1,7 @@
+// cmd: godebug help run
+
+usage: godebug run gofiles... [arguments...]
+
+Run is a wrapper around 'go run'. It generates debugging code for
+the named Go source files and runs 'go run' on the result.
+

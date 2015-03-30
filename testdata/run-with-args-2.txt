@@ -1,0 +1,14 @@
+// same as run-with-args.txt, but different syntax
+
+// dir: /
+// cmd: godebug run with-args.go --foo hello
+
+-> flag.Parse()
+(godebug) print foo
+foo's default value
+(godebug) next
+-> _ = foo
+(godebug) print foo
+foo's default value
+(godebug) continue
+

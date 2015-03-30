@@ -75,7 +75,7 @@ func astPrintf(format string, a ...interface{}) []ast.Stmt {
 	r := io.TeeReader(makeReader(format, a), &buf)
 	f, err := parser.ParseFile(token.NewFileSet(), "", r, 0)
 	if err != nil {
-		io.Copy(os.Stdout, &buf)
+		_, _ = io.Copy(os.Stdout, &buf)
 		panic(err)
 	}
 	body := f.Decls[0].(*ast.FuncDecl).Body
@@ -89,15 +89,21 @@ func main() {`
 	progEnd = "}"
 )
 
+func fprintFieldList(w io.Writer, lst *ast.FieldList) error {
+	var buf bytes.Buffer
+	if err := printer.Fprint(&buf, token.NewFileSet(), &ast.FuncLit{Type: &ast.FuncType{Params: lst}}); err != nil {
+		return err
+	}
+	b := buf.Bytes()
+	_, err := w.Write(b[len("func(") : len(b)-len(")")])
+	return err
+}
+
 func fprint(w io.Writer, a interface{}) error {
 	switch x := a.(type) {
 	case *ast.FieldList:
 		// printer.Fprint does not support this type. Hack around it.
-		var buf bytes.Buffer
-		printer.Fprint(&buf, token.NewFileSet(), &ast.FuncLit{Type: &ast.FuncType{Params: x}})
-		b := buf.Bytes()
-		_, err := w.Write(b[len("func(") : len(b)-len(")")])
-		return err
+		return fprintFieldList(w, x)
 	case ast.Node, []ast.Decl, []ast.Stmt:
 		return printer.Fprint(w, token.NewFileSet(), x)
 	case []ast.Expr:
