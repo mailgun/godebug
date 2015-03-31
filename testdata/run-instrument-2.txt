@@ -1,0 +1,21 @@
+// 'godebug run' with multiple packages passed to -instrument
+// There are three imported packages: foo, bar, an baz.
+// We can step into bar and baz because we instrumented them, but not foo.
+
+// cmd: godebug run -instrument=bar,baz fooBarBaz.go
+// dir: /
+
+-> foo.Foo()
+(godebug) step
+foo
+-> bar.Bar()
+(godebug) step
+-> fmt.Println("bar")
+(godebug) step
+bar
+-> baz.Baz()
+(godebug) step
+-> fmt.Println("baz")
+(godebug) step
+baz
+

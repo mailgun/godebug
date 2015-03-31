@@ -53,28 +53,17 @@ func runTest(t *testing.T, godebug, filename string) {
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 	cmd.Stdin = bytes.NewReader(session.input)
-	setGopath(t, cmd)
+	setTestGopath(t, cmd)
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("Command 'godebug %v' failed to run: %v\n%s", strings.Join(session.cmd[1:], " "), err, buf.Bytes())
+		t.Fatalf("From test %q, 'godebug %v' failed to run: %v\n%s", filepath.Base(filename), strings.Join(session.cmd[1:], " "), err, buf.Bytes())
 	}
 	checkOutput(t, session, buf.Bytes())
 }
 
-func setGopath(t *testing.T, cmd *exec.Cmd) {
-	cmd.Env = os.Environ()
+func setTestGopath(t *testing.T, cmd *exec.Cmd) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	gopath := filepath.Join(cwd, "testdata", "test-filesystem", "gopath")
-	sawGopath := false
-	for i := range cmd.Env {
-		keyVal := strings.SplitN(cmd.Env[i], "=", 2)
-		if keyVal[0] == "GOPATH" {
-			cmd.Env[i] = "GOPATH=" + gopath + string(filepath.ListSeparator) + keyVal[1]
-		}
-	}
-	if !sawGopath {
-		cmd.Env = append(cmd.Env, "GOPATH="+gopath)
-	}
+	setGopath(cmd, filepath.Join(cwd, "testdata", "test-filesystem", "gopath"))
 }

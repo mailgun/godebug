@@ -1,0 +1,17 @@
+This directory contains:
+
+ - a bunch of .txt files
+
+    These are "session files". Each one is a record of a single invocation of godebug. endtoend_cli_test.go, in the directory above,
+    compiles runs one godebug session for each file in this directory, checking that godebug's behavior matches exactly.
+    "cmd" is the command line invocation for that particular test.
+    "dir" is the working directory, relative to the test-filesystem/ directory.
+
+ - test-filesystem/
+
+    This is the working directory where endtoend_cli_test.go runs its tests. The test sets GOPATH=test-filesystem/gopath:$GOPATH before running.
+
+
+ - single-file-tests/
+
+    See the README in that directory. It contains similar test files, used by endtoend_test.go.

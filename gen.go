@@ -50,7 +50,7 @@ func (w *blankLineStripper) Write(p []byte) (n int, err error) {
 	return n + nn, err
 }
 
-func generate(prog *loader.Program, writerFor func(filename string) io.WriteCloser) {
+func generate(prog *loader.Program, writerFor func(importPath, filename string) io.WriteCloser) {
 	for _, pkgInfo := range prog.InitialPackages() {
 		defs = pkgInfo.Defs
 		_types = pkgInfo.Types
@@ -80,7 +80,7 @@ func generate(prog *loader.Program, writerFor func(filename string) io.WriteClos
 			}
 			astutil.AddNamedImport(fs, f, importName, "github.com/mailgun/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-			out := writerFor(fs.Position(f.Pos()).Filename)
+			out := writerFor(pkg.Path(), fs.Position(f.Pos()).Filename)
 			defer out.Close()
 			_ = cfg.Fprint(&blankLineStripper{Writer: out}, fs, f)
 			fmt.Fprintln(out, "\nvar", idents.fileContents, "=", quotedContents)

@@ -16,7 +16,13 @@ import (
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
 )
 
-var w = flag.Bool("w", false, "write result to (source) file instead of stdout")
+var (
+	outputFlags flag.FlagSet
+	w           = outputFlags.Bool("w", false, "write result to (source) file instead of stdout")
+
+	runFlags   flag.FlagSet
+	instrument = runFlags.String("instrument", "", "extra packages to enable for debugging")
+)
 
 func usage() {
 	log.Print(
@@ -38,10 +44,17 @@ Use "godebug help [command]" for more information about a command.
 
 func runUsage() {
 	log.Print(
-		`usage: godebug run gofiles... [arguments...]
+		`usage: godebug run [-instrument pkgs...] gofiles... [arguments...]
 
 Run is a wrapper around 'go run'. It generates debugging code for
 the named Go source files and runs 'go run' on the result.
+
+By default, godebug generates debugging code only for the named
+Go source files, and not their dependencies. This means that in
+the debugging session you will not be able to step into function
+calls from imported packages. To instrument other packages,
+pass the -instrument flag. Packages are comma-separated and
+must not be relative.
 `)
 }
 
@@ -80,82 +93,129 @@ source files. Use with caution.
 
 func main() {
 	log.SetFlags(0)
-	flag.Parse()
-	flag.Usage = usage
-	if flag.NArg() == 0 {
+	if len(os.Args) == 1 {
 		usage()
 	}
-	switch flag.Arg(0) {
+	switch os.Args[1] {
 	case "help":
-		doHelp()
+		doHelp(os.Args[2:])
 	case "output":
-		doOutput()
+		doOutput(os.Args[2:])
 	case "run":
-		doRun()
+		doRun(os.Args[2:])
 	default:
 		usage()
 	}
 }
 
-func doHelp() {
-	if flag.NArg() < 2 {
+func doHelp(args []string) {
+	if len(args) == 0 {
 		usage()
 	}
-	switch flag.Arg(1) {
+	switch args[0] {
 	case "output":
 		outputUsage()
 	case "run":
 		runUsage()
 	default:
-		log.Printf("Unknown help topic `%s`. Run 'godebug help'.\n", flag.Arg(1))
+		log.Printf("Unknown help topic `%s`. Run 'godebug help'.\n", args[0])
 	}
 }
 
-func doRun() {
+func doRun(args []string) {
+	// Parse arguments.
+	if err := runFlags.Parse(args); err != nil {
+		logFatal(err)
+	}
+
+	// Make a temp directory.
+	tmpDir := makeTmpDir()
+
+	// Make sure we clean up the temporary directory if we get killed early.
 	atexit.TrapSignals()
 	defer atexit.CallExitFuncs()
-
-	tmpDir := makeTmpDir()
 	atexit.Run(func() {
 		removeDir(tmpDir)
 	})
 
-	var gofiles []string
-	for _, arg := range flag.Args()[1:] {
-		if !strings.HasSuffix(arg, ".go") {
-			break
-		}
-		gofiles = append(gofiles, arg)
-	}
+	// Separate the .go files from the arguments to the binary we're building.
+	gofiles, rest := getGoFiles()
 	if len(gofiles) == 0 {
 		logFatal("godebug run: no go files listed")
 	}
+
 	var conf loader.Config
+	// SourceImports added because this was breaking when a package was not installed in GOPATH/pkg/.
+	// There is probably a better solution.
 	conf.SourceImports = true
+
+	// Pass .go files to configuration.
 	if err := conf.CreateFromFilenames("main", gofiles...); err != nil {
 		logFatal(err)
 	}
+
+	// Mark the extra packages we want to instrument.
+	var pkgs []string
+	*instrument = strings.Trim(*instrument, ", ")
+	if *instrument != "" {
+		pkgs = strings.Split(*instrument, ",")
+	}
+	for _, pkg := range pkgs {
+		if pkg == "all" || pkg == "std" {
+			logFatalf("Special package %q not is supported in the -instrument flag.", pkg)
+		}
+		conf.Import(pkg)
+	}
+
+	// Generate debugging-enabled source files.
 	prog, err := conf.Load()
 	if err != nil {
 		logFatal(err)
 	}
-	generate(prog, func(filename string) io.WriteCloser {
-		f, err := os.Create(filepath.Join(tmpDir, filepath.Base(filename)))
+	generate(prog, func(importPath, filename string) io.WriteCloser {
+		if importPath == "main" {
+			filename = filepath.Join(tmpDir, filepath.Base(filename))
+		} else {
+			switch strings.Split(filepath.Clean(importPath), string(filepath.Separator))[0] {
+			case ".", "..":
+				logFatalf("Package %q not supported because it has a relative import path. Sorry about that! File an issue at https://github.com/mailgun/godebug/issues/new and we'll come up with a fix for you.")
+			}
+			if err := os.MkdirAll(filepath.Join(tmpDir, "src", importPath), 0770); err != nil {
+				logFatal(err)
+			}
+			filename = filepath.Join(tmpDir, "src", importPath, filepath.Base(filename))
+		}
+		f, err := os.Create(filename)
 		if err != nil {
 			logFatal(err)
 		}
 		return f
 	})
-	args := []string{"run"}
-	args = append(args, mapToTmpDir(tmpDir, gofiles)...)
-	shell("go", args...)
+
+	// Run 'go run'.
+	goArgs := []string{"run"}
+	goArgs = append(goArgs, mapToTmpDir(tmpDir, gofiles)...)
+	goArgs = append(goArgs, rest...)
+	shell(tmpDir, "go", goArgs...)
 }
 
-func shell(command string, args ...string) {
+func getGoFiles() (gofiles, rest []string) {
+	for i, arg := range runFlags.Args() {
+		if !strings.HasSuffix(arg, ".go") {
+			rest = runFlags.Args()[i:]
+			break
+		}
+		gofiles = append(gofiles, arg)
+	}
+	return gofiles, rest
+}
+
+func shell(gopath, command string, args ...string) {
 	cmd := exec.Command(command, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
+	setGopath(cmd, gopath)
 	err := cmd.Run()
 	switch err.(type) {
 	case nil:
@@ -163,6 +223,20 @@ func shell(command string, args ...string) {
 		exit(1)
 	default:
 		log.Fatal(err)
+	}
+}
+
+func setGopath(cmd *exec.Cmd, gopath string) {
+	cmd.Env = os.Environ()
+	sawGopath := false
+	for i := range cmd.Env {
+		keyVal := strings.SplitN(cmd.Env[i], "=", 2)
+		if keyVal[0] == "GOPATH" {
+			cmd.Env[i] = "GOPATH=" + gopath + string(filepath.ListSeparator) + keyVal[1]
+		}
+	}
+	if !sawGopath {
+		cmd.Env = append(cmd.Env, "GOPATH="+gopath)
 	}
 }
 
@@ -188,9 +262,12 @@ func removeDir(dir string) {
 	}
 }
 
-func doOutput() {
+func doOutput(args []string) {
+	if err := outputFlags.Parse(args); err != nil {
+		logFatal(err)
+	}
 	var conf loader.Config
-	rest, err := conf.FromArgs(flag.Args()[1:], true)
+	rest, err := conf.FromArgs(args, true)
 	if len(rest) > 0 {
 		fmt.Fprintf(os.Stderr, "Unrecognized arguments:\n%v\n\n", strings.Join(rest, "\n"))
 	}
@@ -198,15 +275,15 @@ func doOutput() {
 		fmt.Fprintf(os.Stderr, "Error identifying packages: %v\n\n", err)
 	}
 	if len(rest) > 0 || err != nil {
-		flag.Usage()
+		usage()
 	}
 	conf.SourceImports = true
 	prog, err := conf.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading packages: %v\n\n", err)
-		flag.Usage()
+		usage()
 	}
-	generate(prog, func(filename string) io.WriteCloser {
+	generate(prog, func(importPath, filename string) io.WriteCloser {
 		if *w {
 			file, err := os.Create(filename)
 			if err != nil {
@@ -229,6 +306,11 @@ func (nopCloser) Close() error {
 func logFatal(v ...interface{}) {
 	atexit.CallExitFuncs()
 	log.Fatal(v...)
+}
+
+func logFatalf(format string, v ...interface{}) {
+	atexit.CallExitFuncs()
+	log.Fatalf(format, v...)
 }
 
 func exit(n int) {
