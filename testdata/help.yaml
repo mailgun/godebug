@@ -1,0 +1,73 @@
+---
+invocations:
+    - cmd: godebug
+    - cmd: godebug help
+transcript: |
+    godebug is a tool for debugging Go programs.
+
+    Usage:
+
+            godebug command [arguments]
+
+    The commands are:
+
+        run       compile, run, and debug a Go program
+        output    generate debug source code, but do not build or run it
+
+    Use "godebug help [command]" for more information about a command.
+
+---
+invocations:
+    - cmd: godebug help output
+transcript: |
+    usage: godebug output [-w] <packages>
+
+    Output outputs debugging code for <packages>.
+
+    By default, output will print the resulting code to stdout.
+    If the -w flag is given, output will overwrite the original
+    source files. Use with caution.
+
+    <packages> may take one of two forms:
+
+        1. A list of *.go source files.
+
+           All of the specified files are loaded, parsed and type-checked
+           as a single package.  All the files must belong to the same directory.
+
+        2. A list of import paths, each denoting a package.
+
+           The package's directory is found relative to the $GOROOT and
+           $GOPATH using similar logic to 'go build', and the *.go files in
+           that directory are loaded, parsed and type-checked as a single
+           package.
+
+           In addition, all *_test.go files in the directory are then loaded
+           and parsed.  Those files whose package declaration equals that of
+           the non-*_test.go files are included in the primary package.  Test
+           files whose package declaration ends with "_test" are type-checked
+           as another package, the 'external' test package, so that a single
+           import path may denote two packages.
+
+---
+invocations:
+    - cmd: godebug help run
+transcript: |
+    usage: godebug run [-instrument pkgs...] gofiles... [arguments...]
+
+    Run is a wrapper around 'go run'. It generates debugging code for
+    the named Go source files and runs 'go run' on the result.
+
+    By default, godebug generates debugging code only for the named
+    Go source files, and not their dependencies. This means that in
+    the debugging session you will not be able to step into function
+    calls from imported packages. To instrument other packages,
+    pass the -instrument flag. Packages are comma-separated and
+    must not be relative.
+
+---
+invocations:
+    - cmd: godebug help foo
+    - cmd: godebug help foo -bar baz
+transcript: |
+    Unknown help topic `foo`. Run 'godebug help'.

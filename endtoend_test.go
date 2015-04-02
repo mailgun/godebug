@@ -5,7 +5,6 @@ package main
 // This file runs tests in the testdata/single-file-tests directory
 
 import (
-	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
@@ -205,102 +204,74 @@ func checkOutput(t *testing.T, want *session, output []byte) {
 }
 
 var prompt = []byte("(godebug) ")
+var newline = []byte("\n")
 
 // interleaveCommands reconstructs what a terminal session would have looked like,
 // given the bytes sent to stdin and the bytes received from stdout. It assumes
 // input only happens after prompts.
 func interleaveCommands(input, output []byte) (combined []byte) {
-	linesIn := bytes.Split(bytes.TrimSpace(input), []byte("\n"))
+	linesIn := bytes.Split(bytes.TrimSpace(input), newline)
 	if len(input) == 0 {
 		linesIn = nil
 	}
-	linesOut := bytes.Split(output, []byte("\n"))
-	var in, out int
-	for ; out < len(linesOut); out++ {
-		if bytes.HasPrefix(linesOut[out], prompt) {
-			if in >= len(linesIn) {
-				break
-			}
-			combined = append(combined, fmt.Sprintf("%s%s\n%s\n", prompt, linesIn[in], linesOut[out][len(prompt):])...)
-			in++
-		} else {
-			combined = append(combined, linesOut[out]...)
+	newlinePrompt := append(newline, prompt...)
+	chunks := bytes.Split(output, newlinePrompt)
+	for i, chunk := range chunks {
+		combined = append(combined, chunk...)
+		if i != len(chunks)-1 && len(linesIn) > 0 {
+			combined = append(combined, newlinePrompt...)
+			combined = append(combined, linesIn[0]...)
 			combined = append(combined, '\n')
+			linesIn = linesIn[1:]
 		}
 	}
-	lengthCheck := func(index int, lines [][]byte, message string) {
-		if index < len(lines) {
-			combined = append(combined, message...)
-			for ; index < len(lines); index++ {
-				combined = append(combined, lines[index]...)
-				combined = append(combined, '\n')
-			}
-		}
+	for _, line := range linesIn {
+		combined = append(combined, line...)
 	}
-	lengthCheck(in, linesIn, "<<< Input more lines than prompted for. Extra input lines: >>>\n")
-	lengthCheck(out, linesOut, "<<< Session continued after our input stopped. Extra output: >>>\n")
 	return combined
 }
 
 func parseSession(t *testing.T, filename string) *session {
-	f, err := os.Open(filename)
+	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
-	scanner := bufio.NewScanner(f)
-
-	var s session
+	s := parseSessionFromBytes(b)
 	s.filename = filename
+	return s
+}
 
-	scanSessionComment(t, scanner, &s, filename)
+func parseSessionFromBytes(b []byte) *session {
+	var s session
 
-	for {
-		b := append(scanner.Bytes(), '\n')
+	if bytes.HasSuffix(b, newline) {
+		b = b[:len(b)-1]
+	}
+
+	lines := bytes.Split(b, newline)
+	lines = removeSessionComment(lines)
+
+	for _, b := range lines {
+		b = append(b, '\n')
 
 		if bytes.HasPrefix(b, prompt) {
 			s.input = append(s.input, b[len(prompt):]...)
 		}
 		s.fullSession = append(s.fullSession, b...)
+	}
 
-		if !scanner.Scan() {
-			break
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		t.Fatal(err)
-	}
 	return &s
 }
 
 // Scan past top of file comment. The top of file comment consists of any number of consecutive
 // lines that are either blank or begin with the string "//".
-// The comment may include "dir:" or "cmd:" directives, which we parse here.
-func scanSessionComment(t *testing.T, scanner *bufio.Scanner, s *session, filename string) {
-	i := 0
-	for scanner.Scan() {
-		i++
-		b := scanner.Bytes()
-		if len(b) == 0 {
-			continue
-		}
-		if !bytes.HasPrefix(b, []byte("//")) {
-			break
-		}
-		b = bytes.TrimSpace(b[2:])
-		if bytes.HasPrefix(b, []byte("dir:")) {
-			s.workingDir = string(bytes.TrimSpace(b[4:]))
-		}
-		if bytes.HasPrefix(b, []byte("cmd:")) {
-			s.cmd = strings.Split(strings.TrimSpace(string(b[4:])), " ")
-			if len(s.cmd) < 1 || s.cmd[0] != "godebug" {
-				t.Fatalf("%s:%d The command listed in the session file must start with 'godebug'.", filename, i)
-			}
+func removeSessionComment(lines [][]byte) [][]byte {
+	for i := range lines {
+		if len(lines[i]) > 0 && !bytes.HasPrefix(lines[i], []byte("//")) {
+			return lines[i:]
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		t.Fatal(err)
-	}
+	return nil
 }
 
 func getDiff(filename string, inBuf []byte) []byte {

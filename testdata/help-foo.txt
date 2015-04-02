@@ -1,4 +1,0 @@
-// cmd: godebug help foo
-
-Unknown help topic `foo`. Run 'godebug help'.
-

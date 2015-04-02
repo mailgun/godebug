@@ -1,0 +1,117 @@
+---
+# Stepping into foo.HelloWorld() should not work, because we are not instrumenting
+# package foo. It should continue to the next line instead.
+invocations:
+    - dir: /
+      cmd: godebug run a.go
+
+transcript: |
+    -> foo.HelloWorld()
+    (godebug) step
+    Hello, world!
+    -> foo.HelloWorld()
+    (godebug) next
+    Hello, world!
+
+---
+# 'godebug run' with multiple packages passed to -instrument
+# There are three imported packages: foo, bar, an baz.
+# We can step into bar and baz because we instrumented them, but not foo.
+invocations:
+    - dir: /
+      cmd: godebug run -instrument=bar,baz fooBarBaz.go
+    - dir: /
+      cmd: godebug run --instrument baz,bar fooBarBaz.go
+
+transcript: |
+    -> foo.Foo()
+    (godebug) step
+    foo
+    -> bar.Bar()
+    (godebug) step
+    -> fmt.Println("bar")
+    (godebug) step
+    bar
+    -> baz.Baz()
+    (godebug) step
+    -> fmt.Println("baz")
+    (godebug) step
+    baz
+
+---
+# Like previous, but now we can step into all three packages.
+invocations:
+    - dir: /
+      cmd: godebug run -instrument=foo,bar,baz fooBarBaz.go
+    - dir: /
+      cmd: godebug run --instrument baz,foo,bar fooBarBaz.go
+
+transcript: |
+    -> foo.Foo()
+    (godebug) step
+    -> fmt.Println("foo")
+    (godebug) step
+    foo
+    -> bar.Bar()
+    (godebug) step
+    -> fmt.Println("bar")
+    (godebug) step
+    bar
+    -> baz.Baz()
+    (godebug) step
+    -> fmt.Println("baz")
+    (godebug) step
+    baz
+
+---
+# 'godebug run' with the -instrument flag
+invocations:
+    - dir: /
+      cmd: godebug run -instrument foo a.go
+    - dir: /
+      cmd: godebug run --instrument=foo a.go
+
+transcript: |
+    -> foo.HelloWorld()
+    (godebug) step
+    -> fmt.Println("Hello, world!")
+    (godebug) step
+    Hello, world!
+    -> foo.HelloWorld()
+    (godebug) next
+    Hello, world!
+
+---
+# 'godebug run' on multiple files
+invocations:
+    - dir: /dir1
+      cmd: godebug run a.go b.go c.go
+    - dir: /
+      cmd: godebug run dir1/c.go dir1/b.go dir1/a.go
+
+transcript: |
+    -> b()
+    (godebug) step
+    -> c()
+    (godebug) step
+    -> fmt.Println("hello")
+    (godebug) step
+    hello
+
+---
+# 'godebug run' with arguments to the compiled binary
+invocations:
+    - dir: /
+      cmd: godebug run with-args.go --foo hello
+    - dir: /
+      cmd: godebug run with-args.go -foo=hello
+
+transcript: |
+    -> flag.Parse()
+    (godebug) print foo
+    foo's default value
+    (godebug) next
+    -> _ = foo
+    (godebug) print foo
+    hello
+    (godebug) continue
