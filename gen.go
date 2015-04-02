@@ -176,7 +176,7 @@ func isSetTraceCall(node ast.Node) (b bool) {
 	}()
 	sel := node.(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
 	// TODO: Either change this entrypoint or make it compatible with the user importing godebug by another name.
-	return sel.X.(*ast.Ident).Name == "godebug" && sel.Sel.Name == "SetTrace"
+	return sel.X.(*ast.Ident).Name == idents.godebug && sel.Sel.Name == "SetTrace"
 }
 
 type visitor struct {
@@ -732,6 +732,9 @@ func generateGodebugPkgName(f *ast.File) {
 		if imp.Path.Value == `"github.com/mailgun/godebug/lib"` {
 			idents.godebug = "godebug"
 			if imp.Name != nil {
+				if imp.Name.Name == "_" {
+					imp.Name.Name = createConflictFreeName("godebug", f, false)
+				}
 				idents.godebug = imp.Name.Name
 			}
 			break
