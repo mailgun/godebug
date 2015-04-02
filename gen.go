@@ -175,7 +175,6 @@ func isSetTraceCall(node ast.Node) (b bool) {
 		}
 	}()
 	sel := node.(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
-	// TODO: Either change this entrypoint or make it compatible with the user importing godebug by another name.
 	return sel.X.(*ast.Ident).Name == idents.godebug && sel.Sel.Name == "SetTrace"
 }
 
