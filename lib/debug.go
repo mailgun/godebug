@@ -87,6 +87,7 @@ var (
 	currentState     int32
 	currentDepth     int
 	debuggerDepth    int
+	justLeft         bool // we returned from a function we were stepping through and have not yet run any debug code in the parent function
 	context          = getPreferredContextManager()
 	goroutineKey     = gls.GenSym()
 	currentGoroutine uint32
@@ -121,6 +122,12 @@ func EnterFunc(fn func()) (ctx *Context, proceed bool) {
 		return nil, false
 	}
 	if val.(uint32) == atomic.LoadUint32(&currentGoroutine) && currentState != run {
+		if justLeft {
+			// This means this goroutine ran ExitFunc followed by EnterFunc with no intervening debug calls,
+			// probably because the parent caller is in another package which has not been instrumented.
+			debuggerDepth++
+			justLeft = false
+		}
 		currentDepth++
 	}
 	return &Context{goroutine: val.(uint32)}, true
@@ -138,6 +145,12 @@ func EnterFuncLit(fn func(*Context)) (ctx *Context, proceed bool) {
 		return nil, false
 	}
 	if val.(uint32) == atomic.LoadUint32(&currentGoroutine) && currentState != run {
+		if justLeft {
+			// This means this goroutine ran ExitFunc followed by EnterFuncLit with no intervening debug calls,
+			// probably because the parent caller is in another package which has not been instrumented.
+			debuggerDepth++
+			justLeft = false
+		}
 		currentDepth++
 	}
 	return &Context{goroutine: val.(uint32)}, true
@@ -153,6 +166,7 @@ func ExitFunc(ctx *Context) {
 	}
 	if currentState == next && currentDepth == debuggerDepth {
 		debuggerDepth--
+		justLeft = true
 	}
 	currentDepth--
 }
@@ -215,6 +229,7 @@ func lineWithPrefix(c *Context, s *Scope, line int, prefix string) {
 		return
 	}
 	debuggerDepth = currentDepth
+	justLeft = false
 	fmt.Print("-> ", prefix, strings.TrimSpace(s.fileText[line-1]), "\n") // token.Position.Line starts at 1.
 	waitForInput(s, line)
 }

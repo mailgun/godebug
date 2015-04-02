@@ -43,31 +43,36 @@ func compileGodebug(t *testing.T) (filename string) {
 	return godebug
 }
 
-func TestGoldenFiles(t *testing.T) {
-	godebug := compileGodebug(t)
-	defer os.Remove(godebug)
-
-	// Read the testdata directory
-	dirname := filepath.FromSlash("testdata/single-file-tests")
-	fd, err := os.Open(dirname)
+func readDirNames(t *testing.T, dir string) (names []string) {
+	fd, err := os.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer fd.Close()
-	names, err := fd.Readdirnames(-1)
+	names, err = fd.Readdirnames(-1)
 	if err != nil {
 		t.Fatal("Readdirnames:", err)
 	}
+	return
+}
+
+func TestGoldenFiles(t *testing.T) {
+	godebug := compileGodebug(t)
+	defer os.Remove(godebug)
+
+	dirname := filepath.FromSlash("testdata/single-file-tests")
+
 	tests := make(map[string]bool)
-	skipped := make(map[string]bool)
 	sessions := make(map[string][]string)
 	if *files != "" {
 		for _, name := range strings.Split(*files, ",") {
 			tests[name] = true
 		}
 	}
+
 	re := regexp.MustCompile(`(.*)-(?:out.go|in.go|(session(?:.*).txt))`)
-	for _, name := range names {
+
+	for _, name := range readDirNames(t, dirname) {
 		if name == "README.md" {
 			continue
 		}
@@ -85,11 +90,8 @@ func TestGoldenFiles(t *testing.T) {
 			continue
 		}
 		if !tests[prefix] {
-			skipped[prefix] = true
+			fmt.Printf("Skipping golden test %q\n", prefix)
 		}
-	}
-	for name := range skipped {
-		fmt.Printf("Skipping golden test %q\n", name)
 	}
 	var wg sync.WaitGroup
 	wg.Add(len(tests))
@@ -227,6 +229,7 @@ func interleaveCommands(input, output []byte) (combined []byte) {
 	}
 	for _, line := range linesIn {
 		combined = append(combined, line...)
+		combined = append(combined, '\n')
 	}
 	return combined
 }
@@ -251,13 +254,13 @@ func parseSessionFromBytes(b []byte) *session {
 	lines := bytes.Split(b, newline)
 	lines = removeSessionComment(lines)
 
-	for _, b := range lines {
-		b = append(b, '\n')
+	for _, line := range lines {
+		line = append(line, '\n')
 
-		if bytes.HasPrefix(b, prompt) {
-			s.input = append(s.input, b[len(prompt):]...)
+		if bytes.HasPrefix(line, prompt) {
+			s.input = append(s.input, line[len(prompt):]...)
 		}
-		s.fullSession = append(s.fullSession, b...)
+		s.fullSession = append(s.fullSession, line...)
 	}
 
 	return &s

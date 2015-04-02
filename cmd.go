@@ -13,6 +13,8 @@ import (
 
 	"bitbucket.org/JeremySchlatter/go-atexit"
 
+	"go/build"
+
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
 )
 
@@ -20,8 +22,8 @@ var (
 	outputFlags flag.FlagSet
 	w           = outputFlags.Bool("w", false, "write result to (source) file instead of stdout")
 
-	runFlags   flag.FlagSet
-	instrument = runFlags.String("instrument", "", "extra packages to enable for debugging")
+	runTestFlags flag.FlagSet
+	instrument   = runTestFlags.String("instrument", "", "extra packages to enable for debugging")
 )
 
 func usage() {
@@ -35,6 +37,7 @@ Usage:
 The commands are:
 
     run       compile, run, and debug a Go program
+    test      compile, run, and debug Go package tests
     output    generate debug source code, but do not build or run it
 
 Use "godebug help [command]" for more information about a command.
@@ -55,6 +58,26 @@ the debugging session you will not be able to step into function
 calls from imported packages. To instrument other packages,
 pass the -instrument flag. Packages are comma-separated and
 must not be relative.
+`)
+}
+
+func testUsage() {
+	log.Print(
+		`usage: godebug test [-instrument pkgs...] [packages] [flags for test binary]
+
+Test is a wrapper around 'go test'. It generates debugging code for
+the tests in the named packages and runs 'go test' on the result.
+
+As with 'go test', by default godebug test needs no arguments.
+
+By default, godebug generates debugging code only for the named
+packages, and not their dependencies. This means that in the
+debugging session you will not be able to step into function
+calls from imported packages. To instrument other packages,
+pass the -instrument flag. Packages are comma-separated and
+must not be relative.
+
+See also: 'go help testflag'.
 `)
 }
 
@@ -93,6 +116,8 @@ source files. Use with caution.
 
 func main() {
 	log.SetFlags(0)
+	atexit.TrapSignals()
+	defer atexit.CallExitFuncs()
 	if len(os.Args) == 1 {
 		usage()
 	}
@@ -103,6 +128,8 @@ func main() {
 		doOutput(os.Args[2:])
 	case "run":
 		doRun(os.Args[2:])
+	case "test":
+		doTest(os.Args[2:])
 	default:
 		usage()
 	}
@@ -117,6 +144,8 @@ func doHelp(args []string) {
 		outputUsage()
 	case "run":
 		runUsage()
+	case "test":
+		testUsage()
 	default:
 		log.Printf("Unknown help topic `%s`. Run 'godebug help'.\n", args[0])
 	}
@@ -124,19 +153,7 @@ func doHelp(args []string) {
 
 func doRun(args []string) {
 	// Parse arguments.
-	if err := runFlags.Parse(args); err != nil {
-		logFatal(err)
-	}
-
-	// Make a temp directory.
-	tmpDir := makeTmpDir()
-
-	// Make sure we clean up the temporary directory if we get killed early.
-	atexit.TrapSignals()
-	defer atexit.CallExitFuncs()
-	atexit.Run(func() {
-		removeDir(tmpDir)
-	})
+	exitIfErr(runTestFlags.Parse(args))
 
 	// Separate the .go files from the arguments to the binary we're building.
 	gofiles, rest := getGoFiles()
@@ -144,15 +161,55 @@ func doRun(args []string) {
 		logFatal("godebug run: no go files listed")
 	}
 
+	// Build a loader.Config from the .go files.
 	var conf loader.Config
-	// SourceImports added because this was breaking when a package was not installed in GOPATH/pkg/.
+	exitIfErr(conf.CreateFromFilenames("main", gofiles...))
+
+	tmpDir := generateSourceFiles(&conf)
+
+	// Run 'go run'.
+	shellGo(tmpDir, []string{"run"}, mapToTmpDir(tmpDir, gofiles), rest)
+}
+
+func doTest(args []string) {
+	// Parse arguments.
+	packages, testFlags := parseTestArguments(args)
+
+	// Default to the package in the current directory.
+	if len(packages) == 0 {
+		packages = []string{"."}
+	}
+
+	// Build a loader.Config from the provided packages.
+	var conf loader.Config
+	for _, pkg := range packages {
+		exitIfErr(conf.ImportWithTests(pkg))
+	}
+
+	tmpDir := generateSourceFiles(&conf)
+
+	// First compile the test with -c and then run the binary directly.
+	// This resolves some issues that came up with running 'go test' directly:
+	//    (1) 'go test' changes the working directory to that of the source files of the test.
+	//    (2) 'go test' does not forward stdin to the test binary.
+	bin := filepath.Join(tmpDir, "godebug-test-bin.test")
+	goArgs := []string{"test", "-c", "-o", bin}
+	shellGo(tmpDir, goArgs, mapPkgsToTmpDir(packages), nil)
+	shell("", bin, testFlags...)
+}
+
+func generateSourceFiles(conf *loader.Config) (tmpDirPath string) {
+	// Make a temp directory.
+	tmpDir := makeTmpDir()
+
+	// Make sure we clean it up if we get killed early.
+	atexit.Run(func() {
+		removeDir(tmpDir)
+	})
+
+	// This was added because conf.Load() was failing when a package was not installed in GOPATH/pkg/.
 	// There is probably a better solution.
 	conf.SourceImports = true
-
-	// Pass .go files to configuration.
-	if err := conf.CreateFromFilenames("main", gofiles...); err != nil {
-		logFatal(err)
-	}
 
 	// Mark the extra packages we want to instrument.
 	var pkgs []string
@@ -169,40 +226,27 @@ func doRun(args []string) {
 
 	// Generate debugging-enabled source files.
 	prog, err := conf.Load()
-	if err != nil {
-		logFatal(err)
-	}
+	exitIfErr(err)
+	wd := getwd()
 	generate(prog, func(importPath, filename string) io.WriteCloser {
 		if importPath == "main" {
 			filename = filepath.Join(tmpDir, filepath.Base(filename))
 		} else {
-			switch strings.Split(filepath.Clean(importPath), string(filepath.Separator))[0] {
-			case ".", "..":
-				logFatalf("Package %q not supported because it has a relative import path. Sorry about that! File an issue at https://github.com/mailgun/godebug/issues/new and we'll come up with a fix for you.")
-			}
-			if err := os.MkdirAll(filepath.Join(tmpDir, "src", importPath), 0770); err != nil {
-				logFatal(err)
-			}
+			importPath = findUnderGopath(wd, importPath)
+			exitIfErr(os.MkdirAll(filepath.Join(tmpDir, "src", importPath), 0770))
 			filename = filepath.Join(tmpDir, "src", importPath, filepath.Base(filename))
 		}
 		f, err := os.Create(filename)
-		if err != nil {
-			logFatal(err)
-		}
+		exitIfErr(err)
 		return f
 	})
-
-	// Run 'go run'.
-	goArgs := []string{"run"}
-	goArgs = append(goArgs, mapToTmpDir(tmpDir, gofiles)...)
-	goArgs = append(goArgs, rest...)
-	shell(tmpDir, "go", goArgs...)
+	return tmpDir
 }
 
 func getGoFiles() (gofiles, rest []string) {
-	for i, arg := range runFlags.Args() {
+	for i, arg := range runTestFlags.Args() {
 		if !strings.HasSuffix(arg, ".go") {
-			rest = runFlags.Args()[i:]
+			rest = runTestFlags.Args()[i:]
 			break
 		}
 		gofiles = append(gofiles, arg)
@@ -210,12 +254,20 @@ func getGoFiles() (gofiles, rest []string) {
 	return gofiles, rest
 }
 
+func shellGo(tmpDir string, goArgs, packages, extra []string) {
+	goArgs = append(goArgs, packages...)
+	goArgs = append(goArgs, extra...)
+	shell(tmpDir, "go", goArgs...)
+}
+
 func shell(gopath, command string, args ...string) {
 	cmd := exec.Command(command, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
-	setGopath(cmd, gopath)
+	if gopath != "" {
+		setGopath(cmd, gopath)
+	}
 	err := cmd.Run()
 	switch err.(type) {
 	case nil:
@@ -238,6 +290,34 @@ func setGopath(cmd *exec.Cmd, gopath string) {
 	if !sawGopath {
 		cmd.Env = append(cmd.Env, "GOPATH="+gopath)
 	}
+}
+
+func getwd() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		logFatal("godebug needs to know the current working directory, but failed to determine it:", err)
+	}
+	return cwd
+}
+
+func mapPkgsToTmpDir(pkgs []string) []string {
+	result := make([]string, len(pkgs))
+	cwd := getwd()
+	for i, pkg := range pkgs {
+		result[i] = findUnderGopath(cwd, pkg)
+	}
+	return result
+}
+
+func findUnderGopath(cwd, pkg string) string {
+	found, err := build.Import(pkg, cwd, build.FindOnly)
+	if err != nil {
+		logFatalf("Failed to find package %q in findUnderGopath. This is probably a bug -- please report it at https://github.com/mailgun/godebug/issues/new. Thanks!", pkg)
+	}
+	if found.SrcRoot == "" || found.ImportPath == "" {
+		logFatalf("Looks like package %q is not in a GOPATH workspace. godebug doesn't support it right now, but if you open a ticket at https://github.com/mailgun/godebug/issues/new we'll fix it soon. Thanks!", pkg)
+	}
+	return found.ImportPath
 }
 
 func mapToTmpDir(tmpDir string, gofiles []string) []string {
@@ -263,9 +343,8 @@ func removeDir(dir string) {
 }
 
 func doOutput(args []string) {
-	if err := outputFlags.Parse(args); err != nil {
-		logFatal(err)
-	}
+	exitIfErr(outputFlags.Parse(args))
+
 	var conf loader.Config
 	rest, err := conf.FromArgs(args, true)
 	if len(rest) > 0 {
@@ -286,13 +365,41 @@ func doOutput(args []string) {
 	generate(prog, func(importPath, filename string) io.WriteCloser {
 		if *w {
 			file, err := os.Create(filename)
-			if err != nil {
-				logFatal(err)
-			}
+			exitIfErr(err)
 			return file
 		}
 		return nopCloser{os.Stdout}
 	})
+}
+
+func parseTestArguments(args []string) (packages, testFlags []string) {
+	// format: [-instrument pkgs...] [packages] [testFlags]
+
+	if len(args) == 0 {
+		return
+	}
+
+	// -instrument
+	if strings.HasPrefix(args[0], "-instrument") || strings.HasPrefix(args[0], "--instrument") {
+		if strings.Contains(args[0], "=") {
+			exitIfErr(runTestFlags.Parse(args[0:1]))
+			args = args[1:]
+		} else {
+			exitIfErr(runTestFlags.Parse(args[0:2]))
+			args = args[2:]
+		}
+	}
+
+	// Find division between [packages] and [testflags]
+	sep := len(args)
+	for i := range args {
+		if strings.HasPrefix(args[i], "-") {
+			sep = i
+			break
+		}
+	}
+
+	return args[:sep], args[sep:]
 }
 
 type nopCloser struct {
@@ -301,6 +408,12 @@ type nopCloser struct {
 
 func (nopCloser) Close() error {
 	return nil
+}
+
+func exitIfErr(err error) {
+	if err != nil {
+		logFatal(err)
+	}
 }
 
 func logFatal(v ...interface{}) {

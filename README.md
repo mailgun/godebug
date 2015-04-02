@@ -9,26 +9,21 @@ A debugger for Go.
 
 For more detail, see the [end of this README](#how-it-works-more-detail).
 
-
 ### Status
 
-`godebug` is currently in alpha stage -- expect some problems.
-
+`godebug` is currently in alpha stage -- you'll probably find rough edges, which we are happy to [fix](https://github.com/mailgun/godebug/issues/new)
 
 ### Installation:
 
     $ go get github.com/mailgun/godebug
 
-
 ### Getting started:
 
-If you can run your program with `go run`, you can debug it with `godebug run`.
-
-First, insert this breakpoint anywhere in a source file you want to debug:
+Insert a breakpoint anywhere in a source file you want to debug:
 
     godebug.SetTrace()
 
-You'll need to import the godebug package there, too:
+You'll need to import the godebug package in that file, too:
 
     import "github.com/mailgun/godebug/lib"
 
@@ -36,25 +31,15 @@ If the breakpoint is in package main and you don't want to examine any imported 
 
     $ godebug run gofiles... [arguments...]
 
-If you want to trace the program through packages other than main, list them in the `-instrument` flag:
+If you want to trace the program outside of the main package, list the packages to trace in the `-instrument` flag:
 
     $ godebug run -instrument=pkg1,pkg2,pkg3 gofiles... [arguments...]
 
-And that's it!
+If you are debugging a test, use 'godebug test':
 
+    $ godebug test [-instrument pkgs...]
 
-#### Generating code manually for tests:
-
-A `godebug test` command is coming soon, but for now you will have to generate debug code yourself if you want to debug tests.
-
-First, get your directory in a clean state. **The command below will overwrite your files, so make sure you have committed or stashed everything.**
-
-In any file where you want a breakpoint, import `github.com/mailgun/godebug/lib` and insert this `godebug.SetTrace()` as above. Then run:
-
-    $ godebug -w .
-
-Your code is now self-debugging, and you can test it as-is with `go test`. For that matter you can also run it with `go run` and build it with `go build`.
-
+That's it!
 
 ### Debugger commands:
 

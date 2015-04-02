@@ -12,6 +12,7 @@ transcript: |
     The commands are:
 
         run       compile, run, and debug a Go program
+        test      compile, run, and debug Go package tests
         output    generate debug source code, but do not build or run it
 
     Use "godebug help [command]" for more information about a command.
@@ -64,6 +65,26 @@ transcript: |
     calls from imported packages. To instrument other packages,
     pass the -instrument flag. Packages are comma-separated and
     must not be relative.
+
+---
+invocations:
+    - cmd: godebug help test
+transcript: |
+    usage: godebug test [-instrument pkgs...] [packages] [flags for test binary]
+
+    Test is a wrapper around 'go test'. It generates debugging code for
+    the tests in the named packages and runs 'go test' on the result.
+
+    As with 'go test', by default godebug test needs no arguments.
+
+    By default, godebug generates debugging code only for the named
+    packages, and not their dependencies. This means that in the
+    debugging session you will not be able to step into function
+    calls from imported packages. To instrument other packages,
+    pass the -instrument flag. Packages are comma-separated and
+    must not be relative.
+
+    See also: 'go help testflag'.
 
 ---
 invocations:

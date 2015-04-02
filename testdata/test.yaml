@@ -1,0 +1,94 @@
+---
+desc: We should be able to step into a TestXxx function.
+invocations:
+    - dir: /gopath/src/foo
+      cmd: godebug test
+    - dir: /
+      cmd: godebug test foo
+
+transcript: |
+    -> t.Fail()
+    (godebug) next
+    --- FAIL: TestFoo //substr
+    FAIL
+
+nonzero_exit: true
+
+---
+desc: We should be able to follow execution through multiple TestXxx functions.
+invocations:
+    - dir: /gopath/src/testpkg
+      cmd: godebug test
+    - dir: /
+      cmd: godebug test testpkg
+
+transcript: |
+    -> _ = "inside Func1"
+    (godebug) next
+    -> _ = "after Func1"
+    (godebug) next
+    -> _ = "in TestB"
+    (godebug) next
+    -> Func2()
+    (godebug) step
+    -> _ = "inside Func2"
+    (godebug) continue
+    -> _ = "in TestC"
+    (godebug) continue
+    PASS
+
+---
+desc: We should be able to pass a testflag argument to the test binary.
+invocations:
+    - dir: /gopath/src/testpkg
+      cmd: godebug test -test.run=TestB
+    - dir: /
+      cmd: godebug test testpkg -test.run=TestB
+
+transcript: |
+    PASS
+
+---
+desc: We should be able to pass a testflag argument to the test binary and hit breakpoints.
+invocations:
+    - dir: /gopath/src/testpkg
+      cmd: godebug test -test.run=TestC
+    - dir: /
+      cmd: godebug test testpkg -test.run=TestC
+
+transcript: |
+    -> _ = "in TestC"
+    (godebug) continue
+    PASS
+
+---
+desc: We should NOT be able to step into external packages that have NOT been flagged with -instrument.
+invocations:
+    - dir: /gopath/src/testpkg/subdir
+      cmd: godebug test
+    - dir: /
+      cmd: godebug test testpkg/subdir
+
+transcript: |
+    -> foo.Foo()
+    (godebug) step
+    foo
+    -> _ = "finishing test"
+    (godebug) step
+    PASS
+
+---
+desc: We SHOULD be able to step into external packages that HAVE been flagged with -instrument.
+invocations:
+    - dir: /gopath/src/testpkg/subdir
+      cmd: godebg test -instrument foo
+    - dir: /
+      cmd: godebug test -instrument foo testpkg/subdir
+
+transcript: |
+    -> foo.Foo()
+    (godebug) step
+    -> fmt.Println("foo")
+    (godebug) continue
+    foo
+    PASS
