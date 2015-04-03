@@ -80,7 +80,7 @@ func generate(prog *loader.Program, writerFor func(importPath, filename string) 
 			}
 			astutil.AddNamedImport(fs, f, importName, "github.com/mailgun/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-			out := writerFor(pkg.Path(), fs.Position(f.Pos()).Filename)
+			out := writerFor(pkg.Path(), fname)
 			defer out.Close()
 			_ = cfg.Fprint(&blankLineStripper{Writer: out}, fs, f)
 			fmt.Fprintln(out, "\nvar", idents.fileContents, "=", quotedContents)
