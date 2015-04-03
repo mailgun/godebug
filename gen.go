@@ -726,22 +726,24 @@ var idents struct {
 	ctx, ok, scope, receiver, fileScope, fileContents, godebug, result, input string
 }
 
-func generateGodebugPkgName(f *ast.File) {
+func generateGodebugPkgName(f *ast.File) string {
+	var pkgName string
 	for _, imp := range f.Imports {
 		if imp.Path.Value == `"github.com/mailgun/godebug/lib"` {
-			idents.godebug = "godebug"
+			pkgName = "godebug"
 			if imp.Name != nil {
 				if imp.Name.Name == "_" {
 					imp.Name.Name = createConflictFreeName("godebug", f, false)
 				}
-				idents.godebug = imp.Name.Name
+				pkgName = imp.Name.Name
 			}
 			break
 		}
 	}
-	if idents.godebug == "" {
-		idents.godebug = createConflictFreeName("godebug", f, false)
+	if pkgName == "" {
+		pkgName = createConflictFreeName("godebug", f, false)
 	}
+	return pkgName
 }
 
 func generateGodebugIdentifiers(f *ast.File) {
@@ -751,7 +753,7 @@ func generateGodebugIdentifiers(f *ast.File) {
 	idents.scope = createConflictFreeName("scope", f, false)
 	idents.receiver = createConflictFreeName("receiver", f, false)
 
-	generateGodebugPkgName(f)
+	idents.godebug = generateGodebugPkgName(f)
 
 	// Variables that will have suffixes.
 	idents.result = createConflictFreeName("result", f, true)
