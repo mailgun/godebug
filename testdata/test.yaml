@@ -5,6 +5,9 @@ invocations:
       cmd: godebug test
     - dir: /
       cmd: godebug test foo
+creates:
+    - $TMP/src/foo/foo.go
+    - $TMP/src/foo/foo_test.go
 
 transcript: |
     -> t.Fail()
@@ -21,6 +24,9 @@ invocations:
       cmd: godebug test
     - dir: /
       cmd: godebug test testpkg
+creates:
+    - $TMP/src/testpkg/pkg.go
+    - $TMP/src/testpkg/pkg_test.go
 
 transcript: |
     -> _ = "inside Func1"
@@ -44,6 +50,9 @@ invocations:
       cmd: godebug test -test.run=TestB
     - dir: /
       cmd: godebug test testpkg -test.run=TestB
+creates:
+    - $TMP/src/testpkg/pkg.go
+    - $TMP/src/testpkg/pkg_test.go
 
 transcript: |
     PASS
@@ -55,6 +64,9 @@ invocations:
       cmd: godebug test -test.run=TestC
     - dir: /
       cmd: godebug test testpkg -test.run=TestC
+creates:
+    - $TMP/src/testpkg/pkg.go
+    - $TMP/src/testpkg/pkg_test.go
 
 transcript: |
     -> _ = "in TestC"
@@ -68,6 +80,8 @@ invocations:
       cmd: godebug test
     - dir: /
       cmd: godebug test testpkg/subdir
+creates:
+    - $TMP/src/testpkg/subdir/pkg_test.go
 
 transcript: |
     -> foo.Foo()
@@ -84,6 +98,9 @@ invocations:
       cmd: godebg test -instrument foo
     - dir: /
       cmd: godebug test -instrument foo testpkg/subdir
+creates:
+    - $TMP/src/testpkg/subdir/pkg_test.go
+    - $TMP/src/foo/foo.go
 
 transcript: |
     -> foo.Foo()

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"bitbucket.org/JeremySchlatter/go-atexit"
@@ -236,9 +237,7 @@ func generateSourceFiles(conf *loader.Config) (tmpDirPath string) {
 			exitIfErr(os.MkdirAll(filepath.Join(tmpDir, "src", importPath), 0770))
 			filename = filepath.Join(tmpDir, "src", importPath, filepath.Base(filename))
 		}
-		f, err := os.Create(filename)
-		exitIfErr(err)
-		return f
+		return createFileHook(filename, tmpDir)
 	})
 	return tmpDir
 }
@@ -364,9 +363,7 @@ func doOutput(args []string) {
 	}
 	generate(prog, func(importPath, filename string) io.WriteCloser {
 		if *w {
-			file, err := os.Create(filename)
-			exitIfErr(err)
-			return file
+			return createFileHook(filename, "")
 		}
 		return nopCloser{os.Stdout}
 	})
@@ -400,6 +397,36 @@ func parseTestArguments(args []string) (packages, testFlags []string) {
 	}
 
 	return args[:sep], args[sep:]
+}
+
+var (
+	// For communicating with tests.
+	logCreatedFiles bool
+	logFileEnvVar   = "GODEBUG_LOG_CREATED_FILES"
+	logFilePrefix   = "godebug created file: "
+)
+
+func init() {
+	// This is only intended for tests, and so is not documented anywhere.
+	if v := os.Getenv(logFileEnvVar); v != "" {
+		logCreatedFiles, _ = strconv.ParseBool(v)
+	}
+}
+
+// createFileHook is intended to capture all calls to os.Create.
+// When we run under test, the tests can check if we are creating
+// all and only the files we expect to.
+func createFileHook(filename, tmpDir string) *os.File {
+	if logCreatedFiles {
+		if strings.HasPrefix(filename, tmpDir) {
+			log.Println(logFilePrefix + "$TMP" + filename[len(tmpDir):])
+		} else {
+			log.Println(logFilePrefix + filename)
+		}
+	}
+	file, err := os.Create(filename)
+	exitIfErr(err)
+	return file
 }
 
 type nopCloser struct {

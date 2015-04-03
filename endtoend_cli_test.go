@@ -41,14 +41,14 @@ func TestCLISessions(t *testing.T) {
 	// Run tests in parallel
 	var wg sync.WaitGroup
 	for _, test := range tests {
-		for _, c := range parseCases(t, filepath.Join("testdata", test)) {
-			s := parseSessionFromBytes([]byte(c.Transcript))
-			for _, tt := range c.Invocations {
+		for _, tt := range parseCases(t, filepath.Join("testdata", test)) {
+			s := parseSessionFromBytes([]byte(tt.Transcript))
+			for i := range tt.Invocations {
 				wg.Add(1)
-				go func(cmd, dir, filename, desc string, nze bool, s *session) {
+				go func(filename string, s *session, tt testCase, i int) {
 					defer wg.Done()
-					runTest(t, godebug, cmd, dir, filename, desc, nze, s)
-				}(tt.Cmd, tt.Dir, test, c.Desc, c.NonzeroExit, s)
+					runTest(t, godebug, filename, tt, i, s)
+				}(test, s, tt, i)
 			}
 		}
 	}
@@ -60,6 +60,7 @@ type testCase struct {
 		Dir, Cmd string
 	}
 	Desc, Transcript string
+	Creates          []string
 	NonzeroExit      bool `yaml:"nonzero_exit"`
 }
 
@@ -79,8 +80,9 @@ func parseCases(t *testing.T, filename string) []testCase {
 	return testCases
 }
 
-func runTest(t *testing.T, godebug, command, dir, filename, description string, wantNonzeroExit bool, session *session) {
+func runTest(t *testing.T, godebug, filename string, tt testCase, i int, session *session) {
 	var buf bytes.Buffer
+	command, dir := tt.Invocations[i].Cmd, tt.Invocations[i].Dir
 	cmd := exec.Command(godebug, strings.Split(command, " ")[1:]...)
 	cmd.Dir = filepath.FromSlash("testdata/test-filesystem/" + dir)
 	cmd.Stdout = &buf
@@ -88,29 +90,86 @@ func runTest(t *testing.T, godebug, command, dir, filename, description string, 
 	cmd.Stdin = bytes.NewReader(session.input)
 	setTestGopath(t, cmd)
 
-	prefix := fmt.Sprintf("File: %s\nDescription: %s\nWorking dir: %s\nCommand: %s\nFailure:", filename, description, dir, command)
+	// Show multiple errors if they exist and format them nicely.
+	var errs []string
+	defer func() {
+		if errs != nil {
+			t.Errorf("File: %s\nDescription: %s\nWorking dir: %s\nCommand: %s\nFailures:\n\t%v",
+				filename, tt.Desc, dir, command, strings.Join(errs, "\n\t"))
+		}
+	}()
 
+	cmd.Env = append(cmd.Env, logFileEnvVar+"=true")
 	err := cmd.Run()
+	// Because we set `logFileEnvVar` above, godebug will print the
+	// files it creates to stdout. Parse those lines and then pretend
+	// they were not printed.
+	createdFiles, output := recordCreatedFiles(buf.Bytes())
+
 	switch err.(type) {
 	case nil:
-		if wantNonzeroExit {
-			t.Errorf("%s got exit code == 0, wanted a nonzero exit code.", prefix)
+		if tt.NonzeroExit {
+			errs = append(errs, "got exit code == 0, wanted a nonzero exit code.")
 			return
 		}
 	case *exec.ExitError:
-		if !wantNonzeroExit {
-			t.Errorf("%s %q failed to run: %v\n%s", prefix, command, err, buf.Bytes())
+		if !tt.NonzeroExit {
+			errs = append(errs, fmt.Sprintf("%q failed to run: %v\n%s", command, err, output))
+			return
 		}
 	default:
-		t.Errorf("%s %q failed to run: %v\n%s", prefix, command, err, buf.Bytes())
+		errs = append(errs, fmt.Sprintf("%q failed to run: %v\n%s", command, err, output))
 		return
 	}
 
-	got := interleaveCommands(session.input, buf.Bytes())
+	// Check that we created the files we expected and did not create
+	// any files we did not expect.
+	errs = append(errs, checkCreatedFiles(t, tt.Creates, createdFiles)...)
+
+	got := interleaveCommands(session.input, output)
 	if equivalent(got, session.fullSession) {
 		return
 	}
-	t.Errorf("%s Golden transcript did not match actual transcript. Diff:\n\n%v", prefix, diff.Diff(string(session.fullSession), string(got)))
+	errs = append(errs, fmt.Sprintf("golden transcript did not match actual transcript. Diff:\n\n%v", diff.Diff(string(session.fullSession), string(got))))
+}
+
+func checkCreatedFiles(t *testing.T, g, w []string) (errs []string) {
+	got, want := listToMap(g), listToMap(w)
+	for f := range got {
+		if !want[f] {
+			errs = append(errs, "created a file we did not want: "+f)
+		}
+	}
+	for f := range want {
+		if !got[f] {
+			errs = append(errs, "did not create a file we wanted: "+f)
+		}
+	}
+	return errs
+}
+
+func recordCreatedFiles(b []byte) (files []string, rest []byte) {
+	bb := bytes.Split(b, newline)
+
+	for i := range bb {
+		if bytes.HasPrefix(bb[i], []byte(logFilePrefix)) {
+			files = append(files, string(bb[i][len(logFilePrefix):]))
+		} else {
+			rest = append(rest, bb[i]...)
+			if i+1 < len(bb) {
+				rest = append(rest, newline...)
+			}
+		}
+	}
+	return files, rest
+}
+
+func listToMap(list []string) map[string]bool {
+	m := make(map[string]bool)
+	for _, s := range list {
+		m[s] = true
+	}
+	return m
 }
 
 // equivalent does a linewise comparison of a and b.

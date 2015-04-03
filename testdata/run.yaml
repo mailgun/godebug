@@ -4,6 +4,8 @@
 invocations:
     - dir: /
       cmd: godebug run a.go
+creates:
+    - $TMP/a.go
 
 transcript: |
     -> foo.HelloWorld()
@@ -22,6 +24,10 @@ invocations:
       cmd: godebug run -instrument=bar,baz fooBarBaz.go
     - dir: /
       cmd: godebug run --instrument baz,bar fooBarBaz.go
+creates:
+    - $TMP/fooBarBaz.go
+    - $TMP/src/bar/bar.go
+    - $TMP/src/baz/baz.go
 
 transcript: |
     -> foo.Foo()
@@ -45,6 +51,11 @@ invocations:
       cmd: godebug run -instrument=foo,bar,baz fooBarBaz.go
     - dir: /
       cmd: godebug run --instrument baz,foo,bar fooBarBaz.go
+creates:
+    - $TMP/fooBarBaz.go
+    - $TMP/src/foo/foo.go
+    - $TMP/src/bar/bar.go
+    - $TMP/src/baz/baz.go
 
 transcript: |
     -> foo.Foo()
@@ -70,6 +81,9 @@ invocations:
       cmd: godebug run -instrument foo a.go
     - dir: /
       cmd: godebug run --instrument=foo a.go
+creates:
+    - $TMP/a.go
+    - $TMP/src/foo/foo.go
 
 transcript: |
     -> foo.HelloWorld()
@@ -88,6 +102,10 @@ invocations:
       cmd: godebug run a.go b.go c.go
     - dir: /
       cmd: godebug run dir1/c.go dir1/b.go dir1/a.go
+creates:
+    - $TMP/a.go
+    - $TMP/b.go
+    - $TMP/c.go
 
 transcript: |
     -> b()
@@ -105,6 +123,8 @@ invocations:
       cmd: godebug run with-args.go --foo hello
     - dir: /
       cmd: godebug run with-args.go -foo=hello
+creates:
+    - $TMP/with-args.go
 
 transcript: |
     -> flag.Parse()
