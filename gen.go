@@ -145,11 +145,7 @@ func isNewIdent(ident *ast.Ident) bool {
 	return ident.Name != "_" && defs[ident] != nil
 }
 
-// listNewIdentsFromDecl is for declarations using the keyword "var"
 func listNewIdentsFromDecl(decl *ast.GenDecl) (idents []*ast.Ident) {
-	if decl.Tok != token.VAR {
-		return
-	}
 	for _, specs := range decl.Specs {
 		for _, ident := range specs.(*ast.ValueSpec).Names {
 			if isNewIdent(ident) {
@@ -657,11 +653,13 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		v.stmtBuf = append(v.stmtBuf, stmt)
 	}
 
-	// If this statement declared new identifiers, output a Declare call.
+	// If this statement declared new variables, output a Declare call.
 	var newIdents []*ast.Ident
 	switch i := node.(type) {
 	case *ast.DeclStmt:
-		newIdents = listNewIdentsFromDecl(i.Decl.(*ast.GenDecl))
+		if gen := i.Decl.(*ast.GenDecl); gen.Tok == token.VAR {
+			newIdents = listNewIdentsFromDecl(gen)
+		}
 	case *ast.AssignStmt:
 		newIdents = listNewIdentsFromAssign(i)
 	}
@@ -670,6 +668,19 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			v.createScope()
 		}
 		v.stmtBuf = append(v.stmtBuf, newDeclareCall("", newIdents))
+	}
+
+	// If this statement declared new constants, output a Constant call.
+	if decl, ok := node.(*ast.DeclStmt); ok {
+		if gen := decl.Decl.(*ast.GenDecl); gen.Tok == token.CONST {
+			newIdents = listNewIdentsFromDecl(gen)
+			if len(newIdents) > 0 {
+				if !v.createdExplicitScope {
+					v.createScope()
+				}
+				v.stmtBuf = append(v.stmtBuf, newConstantCall("", newIdents))
+			}
+		}
 	}
 
 	// If this is a defer statement, defer another function right after it that will let the user step into it if they wish.
@@ -700,17 +711,37 @@ func getIdents(lists ...*ast.FieldList) (idents []*ast.Ident) {
 }
 
 func newDeclareCall(scopeVar string, newVars []*ast.Ident) ast.Stmt {
+	return newIdentsCall(scopeVar, newVars, false)
+}
+
+func newConstantCall(scopeVar string, newConsts []*ast.Ident) ast.Stmt {
+	return newIdentsCall(scopeVar, newConsts, true)
+}
+
+func newIdentsCall(scopeVar string, newIdents []*ast.Ident, isConst bool) ast.Stmt {
 	if scopeVar == "" {
 		scopeVar = idents.scope
 	}
-	expr := newCallStmt(scopeVar, "Declare")
+	f := "Declare"
+	if isConst {
+		f = "Constant"
+	}
+	expr := newCallStmt(scopeVar, f)
 	call := expr.X.(*ast.CallExpr)
-	call.Args = make([]ast.Expr, 2*len(newVars))
-	for i, _var := range newVars {
-		call.Args[2*i] = newStringLit(strconv.Quote(_var.Name))
-		call.Args[2*i+1] = &ast.UnaryExpr{
-			Op: token.AND,
-			X:  _var,
+	call.Args = make([]ast.Expr, 2*len(newIdents))
+	for i, ident := range newIdents {
+		// Quoted identifier name.
+		call.Args[2*i] = newStringLit(strconv.Quote(ident.Name))
+
+		if isConst {
+			// Pass the value if constant.
+			call.Args[2*i+1] = ident
+		} else {
+			// Pass a pointer if variable.
+			call.Args[2*i+1] = &ast.UnaryExpr{
+				Op: token.AND,
+				X:  ident,
+			}
 		}
 	}
 	return expr

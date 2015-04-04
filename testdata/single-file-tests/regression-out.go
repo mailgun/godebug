@@ -6,14 +6,14 @@ func main() {
 	if !_ok {
 		return
 	}
-	godebug.Line(ctx, regression_in_go_scope, 5)
+	godebug.Line(ctx, regression_in_go_scope, 7)
 	foo := func(i int) int {
 		var result1 int
 		fn := func(ctx *godebug.Context) {
 			result1 = func() int {
 				scope := regression_in_go_scope.EnteringNewChildScope()
 				scope.Declare("i", &i)
-				godebug.Line(ctx, scope, 6)
+				godebug.Line(ctx, scope, 8)
 				return i
 			}()
 		}
@@ -25,25 +25,25 @@ func main() {
 	}(3)
 	scope := regression_in_go_scope.EnteringNewChildScope()
 	scope.Declare("foo", &foo)
-	godebug.Line(ctx, scope, 8)
+	godebug.Line(ctx, scope, 10)
 	_ = foo
 	{
 		scope := scope.EnteringNewChildScope()
 		for _, s := range []string{"foo"} {
-			godebug.Line(ctx, scope, 12)
+			godebug.Line(ctx, scope, 14)
 			scope.Declare("s", &s)
-			godebug.Line(ctx, scope, 13)
+			godebug.Line(ctx, scope, 15)
 			_ = s
 		}
-		godebug.Line(ctx, scope, 12)
+		godebug.Line(ctx, scope, 14)
 	}
-	godebug.Line(ctx, scope, 17)
+	godebug.Line(ctx, scope, 19)
 	c := make(chan bool)
 	scope.Declare("c", &c)
-	godebug.Line(ctx, scope, 18)
+	godebug.Line(ctx, scope, 20)
 	go func() {
 		fn := func(ctx *godebug.Context) {
-			godebug.Line(ctx, scope, 19)
+			godebug.Line(ctx, scope, 21)
 			c <- true
 		}
 		if ctx, _ok := godebug.EnterFuncLit(fn); _ok {
@@ -51,36 +51,42 @@ func main() {
 			fn(ctx)
 		}
 	}()
-	godebug.Line(ctx, scope, 21)
+	godebug.Line(ctx, scope, 23)
 	<-c
-	godebug.Line(ctx, scope, 24)
+	godebug.Line(ctx, scope, 26)
 	defer println("Hello")
-	defer godebug.Defer(ctx, scope, 24)
-	godebug.Line(ctx, scope, 27)
+	defer godebug.Defer(ctx, scope, 26)
+	godebug.Line(ctx, scope, 29)
 	if false {
 	} else {
-		godebug.ElseIfSimpleStmt(ctx, scope, 28)
+		godebug.ElseIfSimpleStmt(ctx, scope, 30)
 		s := "hello"
-		godebug.ElseIfExpr(ctx, scope, 28)
+		godebug.ElseIfExpr(ctx, scope, 30)
 		if s == "hello" {
-			godebug.Line(ctx, scope, 29)
+			godebug.Line(ctx, scope, 31)
 			println(s)
 		}
 	}
-	godebug.Line(ctx, scope, 33)
+	godebug.Line(ctx, scope, 35)
 	m := map[string]int{"test": 5}
 	scope.Declare("m", &m)
-	godebug.Line(ctx, scope, 34)
+	godebug.Line(ctx, scope, 36)
 	if false {
 	} else {
-		godebug.ElseIfSimpleStmt(ctx, scope, 35)
+		godebug.ElseIfSimpleStmt(ctx, scope, 37)
 		_, ok := m["test"]
-		godebug.ElseIfExpr(ctx, scope, 35)
+		godebug.ElseIfExpr(ctx, scope, 37)
 		if ok {
-			godebug.Line(ctx, scope, 36)
+			godebug.Line(ctx, scope, 38)
 			println("test")
 		}
 	}
+	godebug.SetTraceGen(ctx)
+	godebug.Line(ctx, scope, 43)
+	const n = 10
+	scope.Constant("n", n)
+	godebug.Line(ctx, scope, 44)
+	_ = n
 }
 func _switch() int {
 	var result1 int
@@ -91,16 +97,16 @@ func _switch() int {
 		return result1
 	}
 	defer godebug.ExitFunc(ctx)
-	godebug.Line(ctx, regression_in_go_scope, 42)
+	godebug.Line(ctx, regression_in_go_scope, 49)
 	switch {
-	case godebug.Case(ctx, regression_in_go_scope, 43):
+	case godebug.Case(ctx, regression_in_go_scope, 50):
 		panic("impossible")
 	case false:
-		godebug.Line(ctx, regression_in_go_scope, 44)
+		godebug.Line(ctx, regression_in_go_scope, 51)
 		return 4
 	default:
-		godebug.Line(ctx, regression_in_go_scope, 45)
-		godebug.Line(ctx, regression_in_go_scope, 46)
+		godebug.Line(ctx, regression_in_go_scope, 52)
+		godebug.Line(ctx, regression_in_go_scope, 53)
 		return 5
 	}
 }
@@ -113,17 +119,17 @@ func _select() int {
 		return result1
 	}
 	defer godebug.ExitFunc(ctx)
-	godebug.Select(ctx, regression_in_go_scope, 52)
+	godebug.Select(ctx, regression_in_go_scope, 59)
 	select {
-	case <-godebug.Comm(ctx, regression_in_go_scope, 53):
+	case <-godebug.Comm(ctx, regression_in_go_scope, 60):
 		panic("impossible")
 	case <-make(chan bool):
-		godebug.Line(ctx, regression_in_go_scope, 53)
-		godebug.Line(ctx, regression_in_go_scope, 54)
+		godebug.Line(ctx, regression_in_go_scope, 60)
+		godebug.Line(ctx, regression_in_go_scope, 61)
 		return 4
 	default:
-		godebug.Line(ctx, regression_in_go_scope, 55)
-		godebug.Line(ctx, regression_in_go_scope, 56)
+		godebug.Line(ctx, regression_in_go_scope, 62)
+		godebug.Line(ctx, regression_in_go_scope, 63)
 		return 5
 	case <-godebug.EndSelect(ctx, regression_in_go_scope):
 		panic("impossible")
@@ -131,6 +137,8 @@ func _select() int {
 }
 
 var regression_in_go_contents = `package main
+
+import "github.com/mailgun/godebug/lib"
 
 func main() {
 	// Nested scope in the first declaration in a function.
@@ -167,6 +175,11 @@ func main() {
 	} else if _, ok := m["test"]; ok {
 		println("test")
 	}
+
+	// Constant declaration.
+	godebug.SetTrace()
+	const n = 10
+	_ = n
 }
 
 func _switch() int {

@@ -14,9 +14,9 @@ import (
 
 // Scope represents a lexical scope for variable bindings.
 type Scope struct {
-	vars     map[string]interface{}
-	parent   *Scope
-	fileText []string
+	vars, consts map[string]interface{}
+	parent       *Scope
+	fileText     []string
 }
 
 // EnteringNewScope returns a new Scope and internally sets
@@ -24,6 +24,7 @@ type Scope struct {
 func EnteringNewScope(fileText string) *Scope {
 	return &Scope{
 		vars:     make(map[string]interface{}),
+		consts:   make(map[string]interface{}),
 		fileText: parseLines(fileText),
 	}
 }
@@ -45,15 +46,19 @@ func parseLines(text string) []string {
 func (s *Scope) EnteringNewChildScope() *Scope {
 	return &Scope{
 		vars:     make(map[string]interface{}),
+		consts:   make(map[string]interface{}),
 		parent:   s,
 		fileText: s.fileText,
 	}
 }
 
-func (s *Scope) getVar(name string) (i interface{}, ok bool) {
+func (s *Scope) getIdent(name string) (i interface{}, ok bool) {
 	// TODO: This can race with other goroutines setting the value you are printing.
 	for scope := s; scope != nil; scope = scope.parent {
 		if i, ok = scope.vars[name]; ok {
+			return dereference(i), true
+		}
+		if i, ok = scope.consts[name]; ok {
 			return i, true
 		}
 	}
@@ -64,16 +69,25 @@ func (s *Scope) getVar(name string) (i interface{}, ok bool) {
 // The values should be pointers to the values in the program rather than copies
 // of them so that s can track changes to them.
 func (s *Scope) Declare(namevalue ...interface{}) {
+	s.addIdents(s.vars, "Declare", namevalue...)
+}
+
+// Constant is like Declare, but for constants. The values must be passed directly.
+func (s *Scope) Constant(namevalue ...interface{}) {
+	s.addIdents(s.consts, "Constant", namevalue...)
+}
+
+func (s *Scope) addIdents(to map[string]interface{}, funcName string, namevalue ...interface{}) {
 	var i int
 	for i = 0; i+1 < len(namevalue); i += 2 {
 		name, ok := namevalue[i].(string)
 		if !ok {
-			panic("programming error: got odd-numbered argument to RecordVars that was not a string")
+			panic(fmt.Sprintf("programming error: got odd-numbered argument to %s that was not a string", funcName))
 		}
-		s.vars[name] = namevalue[i+1]
+		to[name] = namevalue[i+1]
 	}
 	if i != len(namevalue) {
-		panic("programming error: called RecordVars with odd number of arguments")
+		panic(fmt.Sprintf("programming error: called %s with odd number of arguments", funcName))
 	}
 }
 
@@ -322,15 +336,15 @@ func waitForInput(scope *Scope, line int) {
 			printContext(scope.fileText, line, 4)
 			continue
 		}
-		if v, ok := scope.getVar(strings.TrimSpace(s)); ok {
-			fmt.Println(dereference(v))
+		if v, ok := scope.getIdent(strings.TrimSpace(s)); ok {
+			fmt.Println(v)
 			continue
 		}
 		var cmd, name string
 		n, _ := fmt.Sscan(s, &cmd, &name)
 		if n == 2 && (cmd == "p" || cmd == "print") {
-			if v, ok := scope.getVar(strings.TrimSpace(name)); ok {
-				fmt.Println(dereference(v))
+			if v, ok := scope.getIdent(strings.TrimSpace(name)); ok {
+				fmt.Println(v)
 				continue
 			}
 		}

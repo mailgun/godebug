@@ -1,5 +1,7 @@
 package main
 
+import "github.com/mailgun/godebug/lib"
+
 func main() {
 	// Nested scope in the first declaration in a function.
 	foo := func(i int) int {
@@ -35,6 +37,11 @@ func main() {
 	} else if _, ok := m["test"]; ok {
 		println("test")
 	}
+
+	// Constant declaration.
+	godebug.SetTrace()
+	const n = 10
+	_ = n
 }
 
 func _switch() int {
