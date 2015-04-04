@@ -2,16 +2,20 @@ This directory contains:
 
  - .yaml files
 
-    These contain test cases for endtoend_cli_test.go, in the directory above. They typically show a command to run, the directory
-    to run it in (relative to test-filesystem), the files that the command should create, and a transcript of a debugging
-    session that can follow from that command. endtoend_cli_test.go runs the commands, responds to prompts as specified in the transcript,
-    and verifies that godebug behaves as it describes.
+    These contain test cases for endtoend_cli_test.go, in the directory above.
+    They typically show a command to run, the directory to run it in (relative
+    to test-filesystem), the files that the command should create, and a
+    transcript of a debugging session that can follow from that command.
+    endtoend_cli_test.go runs the commands, responds to prompts as specified
+    in the transcript, and verifies that godebug behaves as it describes.
 
  - test-filesystem/
 
-    This is the working directory where endtoend_cli_test.go runs its tests. The test sets GOPATH=test-filesystem/gopath:$GOPATH before running.
+    This is the working directory where endtoend_cli_test.go runs its tests.
+    The test sets GOPATH=test-filesystem/gopath:$GOPATH before running.
 
 
  - single-file-tests/
 
-    See the README in that directory. It contains similar test files, used by endtoend_test.go.
+    See the README in that directory. It contains similar test files, used
+    by endtoend_test.go.
