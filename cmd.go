@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"bytes"
+
 	"bitbucket.org/JeremySchlatter/go-atexit"
 
 	"go/build"
@@ -48,10 +50,12 @@ Use "godebug help [command]" for more information about a command.
 
 func runUsage() {
 	log.Print(
-		`usage: godebug run [-instrument pkgs...] gofiles... [arguments...]
+		`usage: godebug run [-instrument pkgs...] gofiles... [--] [arguments...]
 
 Run is a wrapper around 'go run'. It generates debugging code for
 the named Go source files and runs 'go run' on the result.
+
+Optionally, a '--' argument ends the list of gofiles.
 
 By default, godebug generates debugging code only for the named
 Go source files, and not their dependencies. This means that in
@@ -166,10 +170,14 @@ func doRun(args []string) {
 	var conf loader.Config
 	exitIfErr(conf.CreateFromFilenames("main", gofiles...))
 
-	tmpDir := generateSourceFiles(&conf)
+	tmpDir := generateSourceFiles(&conf, "run")
 
-	// Run 'go run'.
-	shellGo(tmpDir, []string{"run"}, mapToTmpDir(tmpDir, gofiles), rest)
+	// Run 'go build', then run the binary.
+	// We do this rather than invoking 'go run' directly so we can implement the '--' argument,
+	// which 'go run' does not have.
+	bin := filepath.Join(tmpDir, "godebug.a.out")
+	shellGo(tmpDir, []string{"build", "-o", bin}, mapToTmpDir(tmpDir, gofiles))
+	shell("", bin, rest...)
 }
 
 func doTest(args []string) {
@@ -187,7 +195,7 @@ func doTest(args []string) {
 		exitIfErr(conf.ImportWithTests(pkg))
 	}
 
-	tmpDir := generateSourceFiles(&conf)
+	tmpDir := generateSourceFiles(&conf, "test")
 
 	// First compile the test with -c and then run the binary directly.
 	// This resolves some issues that came up with running 'go test' directly:
@@ -195,11 +203,11 @@ func doTest(args []string) {
 	//    (2) 'go test' does not forward stdin to the test binary.
 	bin := filepath.Join(tmpDir, "godebug-test-bin.test")
 	goArgs := []string{"test", "-c", "-o", bin}
-	shellGo(tmpDir, goArgs, mapPkgsToTmpDir(packages), nil)
+	shellGo(tmpDir, goArgs, mapPkgsToTmpDir(packages))
 	shell("", bin, testFlags...)
 }
 
-func generateSourceFiles(conf *loader.Config) (tmpDirPath string) {
+func generateSourceFiles(conf *loader.Config, subcommand string) (tmpDirPath string) {
 	// Make a temp directory.
 	tmpDir := makeTmpDir()
 
@@ -218,16 +226,44 @@ func generateSourceFiles(conf *loader.Config) (tmpDirPath string) {
 	if *instrument != "" {
 		pkgs = strings.Split(*instrument, ",")
 	}
+	all := false
+	var stdLib map[string]bool
 	for _, pkg := range pkgs {
-		if pkg == "all" || pkg == "std" {
-			logFatalf("Special package %q not is supported in the -instrument flag.", pkg)
+		// check for the special reserved package names: "main", "all", and "std"
+		// see 'go help packages'
+		switch pkg {
+		case "main":
+			switch subcommand {
+			case "run": // The main package is always instrumented anyway. Carry on.
+			case "test":
+				logFatal(`godebug test: can't pass reserved name "main" in the -instrument flag.`)
+			}
+		case "all":
+			if !all {
+				all = true
+				stdLib = getStdLibPkgs()
+				fmt.Println(`godebug run: heads up: "all" means "all except std". godebug can't step into the standard library yet.` + "\n")
+			}
+		case "std":
+			logFatalf("godebug %s: reserved name \"std\" cannot be passed in the -instrument flag."+
+				"\ngodebug cannot currently instrument packages in the standard library."+
+				"\nDo you wish it could? Chime in at https://github.com/mailgun/godebug/issues/12",
+				subcommand)
+		default:
+			conf.Import(pkg)
 		}
-		conf.Import(pkg)
+	}
+
+	// Load the program.
+	prog, err := conf.Load()
+	exitIfErr(err)
+
+	// If we're in "all" mode, mark all but the standard library packages and godebug itself for instrumenting.
+	if all {
+		markAlmostAllPackages(prog, stdLib)
 	}
 
 	// Generate debugging-enabled source files.
-	prog, err := conf.Load()
-	exitIfErr(err)
 	wd := getwd()
 	generate(prog, func(importPath, filename string) io.WriteCloser {
 		if importPath == "main" {
@@ -242,8 +278,30 @@ func generateSourceFiles(conf *loader.Config) (tmpDirPath string) {
 	return tmpDir
 }
 
+func markAlmostAllPackages(prog *loader.Program, stdLib map[string]bool) {
+	for _, pkg := range prog.AllPackages {
+		path := pkg.String()
+		switch {
+
+		// skip this package if...
+		case stdLib[path]: // it's part of the standard library
+		case prog.ImportMap[path] == nil: // it's a Created package
+		case path == "github.com/mailgun/godebug/lib": // it's the godebug library
+		case path == "github.com/jtolds/gls": // it's a dependency of the godebug library
+
+		// otherwise include it
+		default:
+			prog.Imported[pkg.String()] = pkg
+		}
+	}
+}
+
 func getGoFiles() (gofiles, rest []string) {
 	for i, arg := range runTestFlags.Args() {
+		if arg == "--" {
+			rest = runTestFlags.Args()[i+1:]
+			break
+		}
 		if !strings.HasSuffix(arg, ".go") {
 			rest = runTestFlags.Args()[i:]
 			break
@@ -253,10 +311,8 @@ func getGoFiles() (gofiles, rest []string) {
 	return gofiles, rest
 }
 
-func shellGo(tmpDir string, goArgs, packages, extra []string) {
-	goArgs = append(goArgs, packages...)
-	goArgs = append(goArgs, extra...)
-	shell(tmpDir, "go", goArgs...)
+func shellGo(tmpDir string, goArgs, packages []string) {
+	shell(tmpDir, "go", append(goArgs, packages...)...)
 }
 
 func shell(gopath, command string, args ...string) {
@@ -427,6 +483,19 @@ func createFileHook(filename, tmpDir string) *os.File {
 	file, err := os.Create(filename)
 	exitIfErr(err)
 	return file
+}
+
+func getStdLibPkgs() map[string]bool {
+	pkgs := make(map[string]bool)
+	b, err := exec.Command("go", "list", "std").Output()
+	if err != nil {
+		fmt.Printf("Failed to identify standard library packages. Here's the error from 'go list std':\n%s\n\nTry running again without passing \"all\" in the -instrument flag.", b)
+	}
+	b = bytes.TrimSpace(b)
+	for _, pkg := range bytes.Split(b, []byte{'\n'}) {
+		pkgs[string(pkg)] = true
+	}
+	return pkgs
 }
 
 type nopCloser struct {

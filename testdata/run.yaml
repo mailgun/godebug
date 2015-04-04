@@ -4,6 +4,8 @@
 invocations:
     - dir: /
       cmd: godebug run a.go
+    - dir: /gopath/src
+      cmd: godebug run ../../a.go
 creates:
     - $TMP/a.go
 
@@ -24,6 +26,11 @@ invocations:
       cmd: godebug run -instrument=bar,baz fooBarBaz.go
     - dir: /
       cmd: godebug run --instrument baz,bar fooBarBaz.go
+    - dir: /
+      # instrumenting main is always useless but harmless for godebug run
+      cmd: godebug run --instrument main,baz,bar fooBarBaz.go
+    - dir: /gopath/src/foo
+      cmd: godebug run --instrument ../baz,../bar ../../../fooBarBaz.go
 creates:
     - $TMP/fooBarBaz.go
     - $TMP/src/bar/bar.go
@@ -51,6 +58,9 @@ invocations:
       cmd: godebug run -instrument=foo,bar,baz fooBarBaz.go
     - dir: /
       cmd: godebug run --instrument baz,foo,bar fooBarBaz.go
+    - dir: /
+      # instrumenting main is always useless but harmless for godebug run
+      cmd: godebug run --instrument baz,foo,bar,main fooBarBaz.go
 creates:
     - $TMP/fooBarBaz.go
     - $TMP/src/foo/foo.go
@@ -58,6 +68,37 @@ creates:
     - $TMP/src/baz/baz.go
 
 transcript: |
+    -> foo.Foo()
+    (godebug) step
+    -> fmt.Println("foo")
+    (godebug) step
+    foo
+    -> bar.Bar()
+    (godebug) step
+    -> fmt.Println("bar")
+    (godebug) step
+    bar
+    -> baz.Baz()
+    (godebug) step
+    -> fmt.Println("baz")
+    (godebug) step
+    baz
+
+---
+# Like previous, but using --instrument all. Adds a warning.
+invocations:
+    - dir: /
+      # Should instrument only the transitive dependencies, not actually all packages.
+      cmd: godebug run --instrument all fooBarBaz.go
+creates:
+    - $TMP/fooBarBaz.go
+    - $TMP/src/foo/foo.go
+    - $TMP/src/bar/bar.go
+    - $TMP/src/baz/baz.go
+
+transcript: |
+    godebug run: heads up: "all" means "all except std". godebug can't step into the standard library yet.
+
     -> foo.Foo()
     (godebug) step
     -> fmt.Println("foo")
@@ -135,3 +176,87 @@ transcript: |
     (godebug) print foo
     hello
     (godebug) continue
+
+---
+desc: running with no arguments should print a useful message
+invocations:
+    - cmd: godebug run
+
+transcript: "godebug run: no go files listed"
+
+nonzero_exit: true
+
+---
+desc: running with a package name should fail
+invocations:
+    - cmd: godebug run foo
+
+transcript: "godebug run: no go files listed"
+
+nonzero_exit: true
+
+---
+desc: should be able to pass .go files in the arguments list
+invocations:
+    - dir: /
+      cmd: godebug run arg-printer.go foo with-args.go
+creates:
+    - $TMP/arg-printer.go
+
+# arg-printer.go has no breakpoints set.
+# It just prints its arguments.
+transcript: |
+    foo
+    with-args.go
+
+---
+desc: should be able to pass a .go file as the first argument
+invocations:
+    - dir: /
+      cmd: godebug run arg-printer.go -- with-args.go a.go
+creates:
+    - $TMP/arg-printer.go
+
+transcript: |
+    with-args.go
+    a.go
+
+---
+desc: should be able to pass a literal '--' argument
+invocations:
+    - dir: /
+      cmd: godebug run arg-printer.go -- -- foo.go
+creates:
+    - $TMP/arg-printer.go
+
+transcript: |
+    --
+    foo.go
+
+---
+desc: passing "-instrument=std" should fail
+invocations:
+    - dir: /
+      cmd: godebug run -instrument=std fooBarBaz.go
+    - dir: /
+      cmd: godebug run --instrument foo,std,bar fooBarBaz.go
+
+transcript: |
+    godebug run: reserved name "std" cannot be passed in the -instrument flag.
+    godebug cannot currently instrument packages in the standard library.
+    Do you wish it could? Chime in at https://github.com/mailgun/godebug/issues/12
+
+nonzero_exit: true
+
+---
+desc: passing "-instrument=all" should print a warning
+invocations:
+    - dir: /
+      cmd: godebug run -instrument=all arg-printer.go some-arg
+creates:
+    - $TMP/arg-printer.go
+
+transcript: |
+    godebug run: heads up: "all" means "all except std". godebug can't step into the standard library yet.
+
+    some-arg

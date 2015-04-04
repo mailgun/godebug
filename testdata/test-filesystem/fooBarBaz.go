@@ -1,15 +1,15 @@
 package main
 
 import (
+	"bar"
 	"baz"
-        "bar"
 	"foo"
 
-        "github.com/mailgun/godebug/lib"
+	"github.com/mailgun/godebug/lib"
 )
 
 func main() {
-        godebug.SetTrace()
+	godebug.SetTrace()
 	foo.Foo()
 	bar.Bar()
 	baz.Baz()
