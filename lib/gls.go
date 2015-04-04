@@ -1,72 +1,29 @@
+// +build !js
+
 package godebug
 
-import (
-	"bytes"
-	"runtime"
-	"sync"
+// Pure-Go implementation of goroutine local storage.
 
-	"github.com/jtolds/gls"
-)
-
-/*
-	This file is inspired by https://github.com/jtolds/gls.
-	My goal is to implement a subset of that API with lower overhead.
-
-	I use the goroutine number from the stack trace as an identifier
-	and assume that SetValues is not called recursively.
-*/
+import "github.com/jtolds/gls"
 
 var Go = gls.Go
 
-type contextManager interface {
-	GetValue(key interface{}) (value interface{}, ok bool)
-	SetValues(newValues gls.Values, contextCall func())
+func getContextManager() contextManager {
+	return wrapper{gls.NewContextManager()}
 }
 
-func getPreferredContextManager() contextManager {
-	return gls.NewContextManager()
+type wrapper struct {
+	*gls.ContextManager
 }
 
-type stackTraceManager struct {
-	sync.Mutex
-	m map[string]gls.Values
-}
-
-func newStackTraceManager() *stackTraceManager {
-	return &stackTraceManager{
-		m: make(map[string]gls.Values),
+func (w wrapper) SetValues(contextCall func(), keyVal ...interface{}) {
+	if len(keyVal)%2 != 0 {
+		panic("bad argument to SetValues")
 	}
-}
-
-func (mgr *stackTraceManager) GetValue(key interface{}) (value interface{}, ok bool) {
-	id := goid()
-	mgr.Lock()
-	m, ok := mgr.m[id]
-	mgr.Unlock()
-	if ok {
-		value, ok = m[key]
-		return
+	vals := make(gls.Values)
+	for i := 0; i < len(keyVal); i += 2 {
+		vals[keyVal[i]] = vals[keyVal[i+1]]
 	}
-	return nil, false
-}
 
-func (mgr *stackTraceManager) SetValues(newValues gls.Values, contextCall func()) {
-	id := goid()
-	mgr.Lock()
-	mgr.m[id] = newValues
-	mgr.Unlock()
-
-	defer func() {
-		mgr.Lock()
-		delete(mgr.m, id)
-		mgr.Unlock()
-	}()
-
-	contextCall()
-}
-
-func goid() string {
-	buf := make([]byte, 15)
-	buf = buf[:runtime.Stack(buf, false)]
-	return string(bytes.Split(buf, []byte(" "))[1])
+	w.ContextManager.SetValues(vals, contextCall)
 }

@@ -1,15 +1,11 @@
 package godebug
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"sync/atomic"
 	"unicode"
-
-	"github.com/jtolds/gls"
 )
 
 // Scope represents a lexical scope for variable bindings.
@@ -97,13 +93,20 @@ const (
 	step
 )
 
+type contextManager interface {
+	GetValue(key interface{}) (value interface{}, ok bool)
+	// SetValues is not intended to be called multiple times in the same stack,
+	// even though github.com/jtolds/gls supports it.
+	SetValues(contextCall func(), keyVal ...interface{})
+}
+
 var (
 	currentState     int32
 	currentDepth     int
 	debuggerDepth    int
 	justLeft         bool // we returned from a function we were stepping through and have not yet run any debug code in the parent function
-	context          = getPreferredContextManager()
-	goroutineKey     = gls.GenSym()
+	context          = getContextManager()
+	goroutineKey     = 0
 	currentGoroutine uint32
 	ids              idPool
 )
@@ -132,7 +135,7 @@ func EnterFunc(fn func()) (ctx *Context, proceed bool) {
 		// invoke fn, which means the caller should not proceed. After running it, return false.
 		id := uint32(ids.Acquire())
 		defer ids.Release(uint(id))
-		context.SetValues(gls.Values{goroutineKey: id}, fn)
+		context.SetValues(fn, goroutineKey, id)
 		return nil, false
 	}
 	if val.(uint32) == atomic.LoadUint32(&currentGoroutine) && currentState != run {
@@ -153,9 +156,9 @@ func EnterFuncLit(fn func(*Context)) (ctx *Context, proceed bool) {
 	if !ok {
 		id := uint32(ids.Acquire())
 		defer ids.Release(uint(id))
-		context.SetValues(gls.Values{goroutineKey: id}, func() {
+		context.SetValues(func() {
 			fn(&Context{goroutine: id})
-		})
+		}, goroutineKey, id)
 		return nil, false
 	}
 	if val.(uint32) == atomic.LoadUint32(&currentGoroutine) && currentState != run {
@@ -210,7 +213,7 @@ func Comm(c *Context, s *Scope, line int) chan struct{} {
 // It returns a nil channel to read from as the last case of that select statement.
 func EndSelect(c *Context, s *Scope) chan struct{} {
 	if shouldPause(c) {
-		fmt.Println("< All channel expressions evaluated. Choosing case to proceed. >")
+		outputln("< All channel expressions evaluated. Choosing case to proceed. >")
 	}
 	return nil
 }
@@ -224,7 +227,7 @@ func Select(c *Context, s *Scope, line int) {
 	// Assumes the debugger hasn't switched goroutines. Valid assumption now,
 	// will probably change in the future.
 	if currentState != run {
-		fmt.Println("< Evaluating channel expressions and RHS of send expressions. >")
+		outputln("< Evaluating channel expressions and RHS of send expressions. >")
 	}
 }
 
@@ -244,7 +247,7 @@ func lineWithPrefix(c *Context, s *Scope, line int, prefix string) {
 	}
 	debuggerDepth = currentDepth
 	justLeft = false
-	fmt.Print("-> ", prefix, strings.TrimSpace(s.fileText[line-1]), "\n") // token.Position.Line starts at 1.
+	output("-> ", prefix, strings.TrimSpace(s.fileText[line-1]), "\n") // token.Position.Line starts at 1.
 	waitForInput(s, line)
 }
 
@@ -291,12 +294,6 @@ func SetTraceGen(ctx *Context) {
 	currentState = step
 }
 
-var input *bufio.Scanner
-
-func init() {
-	input = bufio.NewScanner(os.Stdin)
-}
-
 var help = `
 Commands:
     (h) help: Print this help.
@@ -312,16 +309,16 @@ Any input that is not one of the above commands is interpreted as a variable nam
 
 func waitForInput(scope *Scope, line int) {
 	for {
-		fmt.Print("(godebug) ")
+		output("(godebug) ")
 		if !input.Scan() {
-			fmt.Println("quitting session")
+			outputln("quitting session")
 			currentState = run
 			return
 		}
 		s := input.Text()
 		switch s {
 		case "?", "h", "help":
-			fmt.Println(help)
+			outputln(help)
 			continue
 		case "n", "next":
 			currentState = next
@@ -337,18 +334,18 @@ func waitForInput(scope *Scope, line int) {
 			continue
 		}
 		if v, ok := scope.getIdent(strings.TrimSpace(s)); ok {
-			fmt.Printf("%#v\n", v)
+			outputln(fmt.Sprintf("%#v", v))
 			continue
 		}
 		var cmd, name string
 		n, _ := fmt.Sscan(s, &cmd, &name)
 		if n == 2 && (cmd == "p" || cmd == "print") {
 			if v, ok := scope.getIdent(strings.TrimSpace(name)); ok {
-				fmt.Printf("%#v\n", v)
+				outputln(fmt.Sprintf("%#v", v))
 				continue
 			}
 		}
-		fmt.Printf("Command not recognized, sorry! You typed: %q\n", s)
+		outputf("Command not recognized, sorry! You typed: %q\n", s)
 	}
 }
 
@@ -358,7 +355,7 @@ func dereference(i interface{}) interface{} {
 
 func printContext(lines []string, line, contextCount int) {
 	line-- // token.Position.Line starts at 1.
-	fmt.Println()
+	outputln()
 	for i := line - contextCount; i <= line+contextCount; i++ {
 		prefix := "    "
 		if i == line {
@@ -366,8 +363,20 @@ func printContext(lines []string, line, contextCount int) {
 		}
 		if i >= 0 && i < len(lines) {
 			line := strings.TrimRightFunc(prefix+lines[i], unicode.IsSpace)
-			fmt.Println(line)
+			outputln(line)
 		}
 	}
-	fmt.Println()
+	outputln()
+}
+
+func output(a ...interface{}) (n int, err error) {
+	return fmt.Fprint(outputW, a...)
+}
+
+func outputf(format string, a ...interface{}) (n int, err error) {
+	return fmt.Fprintf(outputW, format, a...)
+}
+
+func outputln(a ...interface{}) (n int, err error) {
+	return fmt.Fprintln(outputW, a...)
 }
