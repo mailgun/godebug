@@ -82,6 +82,53 @@ func main() {
 		}
 	}
 }
+func _switch() int {
+	var result1 int
+	ctx, _ok := godebug.EnterFunc(func() {
+		result1 = _switch()
+	})
+	if !_ok {
+		return result1
+	}
+	defer godebug.ExitFunc(ctx)
+	godebug.Line(ctx, regression_in_go_scope, 42)
+	switch {
+	case godebug.Case(ctx, regression_in_go_scope, 43):
+		panic("impossible")
+	case false:
+		godebug.Line(ctx, regression_in_go_scope, 44)
+		return 4
+	default:
+		godebug.Line(ctx, regression_in_go_scope, 45)
+		godebug.Line(ctx, regression_in_go_scope, 46)
+		return 5
+	}
+}
+func _select() int {
+	var result1 int
+	ctx, _ok := godebug.EnterFunc(func() {
+		result1 = _select()
+	})
+	if !_ok {
+		return result1
+	}
+	defer godebug.ExitFunc(ctx)
+	godebug.Select(ctx, regression_in_go_scope, 52)
+	select {
+	case <-godebug.Comm(ctx, regression_in_go_scope, 53):
+		panic("impossible")
+	case <-make(chan bool):
+		godebug.Line(ctx, regression_in_go_scope, 53)
+		godebug.Line(ctx, regression_in_go_scope, 54)
+		return 4
+	default:
+		godebug.Line(ctx, regression_in_go_scope, 55)
+		godebug.Line(ctx, regression_in_go_scope, 56)
+		return 5
+	case <-godebug.EndSelect(ctx, regression_in_go_scope):
+		panic("impossible")
+	}
+}
 
 var regression_in_go_contents = `package main
 
@@ -119,6 +166,26 @@ func main() {
 	if false {
 	} else if _, ok := m["test"]; ok {
 		println("test")
+	}
+}
+
+func _switch() int {
+	// Terminating switch statement in function with return value.
+	switch {
+	case false:
+		return 4
+	default:
+		return 5
+	}
+}
+
+func _select() int {
+	// Terminating select statement in function with return value.
+	select {
+	case <-make(chan bool):
+		return 4
+	default:
+		return 5
 	}
 }
 `

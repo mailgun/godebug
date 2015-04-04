@@ -36,3 +36,23 @@ func main() {
 		println("test")
 	}
 }
+
+func _switch() int {
+	// Terminating switch statement in function with return value.
+	switch {
+	case false:
+		return 4
+	default:
+		return 5
+	}
+}
+
+func _select() int {
+	// Terminating select statement in function with return value.
+	select {
+	case <-make(chan bool):
+		return 4
+	default:
+		return 5
+	}
+}

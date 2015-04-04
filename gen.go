@@ -106,12 +106,14 @@ func newInt(n int) *ast.BasicLit {
 	}
 }
 
-func newReceiveCase(x ast.Expr) *ast.CommClause {
+func newTerminatingReceiveCase(x ast.Expr) *ast.CommClause {
 	return &ast.CommClause{
 		Comm: &ast.ExprStmt{
 			X: &ast.UnaryExpr{
 				Op: token.ARROW,
-				X:  x}}}
+				X:  x}},
+		Body: astPrintf(`panic("impossible")`),
+	}
 }
 
 func newCallStmt(selector, fnName string, args ...ast.Expr) *ast.ExprStmt {
@@ -186,6 +188,7 @@ type visitor struct {
 	createdExplicitScope bool
 	hasRecovers          bool
 	parentIsExprSwitch   bool
+
 	loopState
 }
 
@@ -479,8 +482,8 @@ func (v *visitor) finalizeNode() {
 		v.finalizeLoop(i.For, i.Body)
 
 	case *ast.SelectStmt:
-		i.Body.List = append(i.Body.List, newReceiveCase(
-			newCall(idents.godebug, "EndSelect", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope))))
+		i.Body.List = append(i.Body.List, newTerminatingReceiveCase(
+			newCall(idents.godebug, "EndSelect", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar))))
 
 	case *ast.File:
 		// Insert declaration of file-level godebug.Scope variable as first declaration in file.
@@ -564,7 +567,12 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	case *ast.CaseClause:
 		if v.stmtBuf != nil {
 			if v.parentIsExprSwitch && len(i.List) > 0 {
-				v.stmtBuf = append(v.stmtBuf, &ast.CaseClause{List: []ast.Expr{newCall(idents.godebug, "Case", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(i.Pos())))}})
+				v.stmtBuf = append(v.stmtBuf,
+					&ast.CaseClause{
+						List: []ast.Expr{
+							newCall(idents.godebug, "Case", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(i.Pos())))},
+						// In case this switch is a terminating statement, make this clause be terminating.
+						Body: astPrintf(`panic("impossible")`)})
 			}
 			v.stmtBuf = append(v.stmtBuf, i)
 		}
@@ -585,7 +593,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	case *ast.CommClause:
 		// Mark this case with a godebug.Comm call if it's not the default.
 		if i.Comm != nil { // nil means default case
-			v.stmtBuf = append(v.stmtBuf, newReceiveCase(newCall(idents.godebug, "Comm", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope), newInt(pos2line(i.Pos())))))
+			v.stmtBuf = append(v.stmtBuf, newTerminatingReceiveCase(newCall(idents.godebug, "Comm", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(i.Pos())))))
 		}
 
 		// Manually walk its descendants.
@@ -602,7 +610,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		for _, node := range i.Body {
 			childVisitor.Visit(node)
 		}
-		i.Body = append([]ast.Stmt{newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope), newInt(pos2line(i.Pos())))}, childVisitor.stmtBuf...)
+		i.Body = append([]ast.Stmt{newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(i.Pos())))}, childVisitor.stmtBuf...)
 
 		return nil
 	}
@@ -842,12 +850,10 @@ type recoverVisitor struct {
 func (v *recoverVisitor) Visit(node ast.Node) ast.Visitor {
 	switch x := node.(type) {
 	case *ast.CallExpr:
-		if ident, ok := x.Fun.(*ast.Ident); ok {
-			if ident.Name == "recover" && _types[x.Fun].IsBuiltin() {
-				rewriteRecoverCall(v.parent, node)
-				*v.didRewrite = true
-				return nil
-			}
+		if isBuiltinFunc(x.Fun, "recover") {
+			rewriteRecoverCall(v.parent, node)
+			*v.didRewrite = true
+			return nil
 		}
 	case *ast.FuncLit:
 		// Ignore recover calls in nested function literals.
@@ -889,4 +895,9 @@ func parseCgoFile(filename string) (*ast.File, *token.FileSet) {
 		}
 	}
 	return nil, nil
+}
+
+func isBuiltinFunc(fn ast.Expr, name string) bool {
+	ident, ok := fn.(*ast.Ident)
+	return ok && ident.Name == name && _types[fn].IsBuiltin()
 }
