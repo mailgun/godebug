@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"go/build"
 	"io"
 	"io/ioutil"
 	"log"
@@ -12,11 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"bytes"
-
 	"bitbucket.org/JeremySchlatter/go-atexit"
-
-	"go/build"
 
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
 )
@@ -172,6 +170,12 @@ func doRun(args []string) {
 
 	tmpDir := generateSourceFiles(&conf, "run")
 
+	// Run 'go build -i' once without changing the GOPATH.
+	// This will recompile and install any out-of-date packages.
+	// When we modify the GOPATH in the next invocation of the go tool,
+	// it will not check if any of the uninstrumented dependencies are out-of-date.
+	shellGo("", []string{"build", "-o", os.DevNull, "-i"}, gofiles)
+
 	// Run 'go build', then run the binary.
 	// We do this rather than invoking 'go run' directly so we can implement the '--' argument,
 	// which 'go run' does not have.
@@ -196,6 +200,12 @@ func doTest(args []string) {
 	}
 
 	tmpDir := generateSourceFiles(&conf, "test")
+
+	// Run 'go test -i' once without changing the GOPATH.
+	// This will recompile and install any out-of-date packages.
+	// When we modify the GOPATH in the next invocation of the go tool,
+	// it will not check if any of the uninstrumented dependencies are out-of-date.
+	shellGo("", []string{"test", "-i"}, packages)
 
 	// First compile the test with -c and then run the binary directly.
 	// This resolves some issues that came up with running 'go test' directly:
