@@ -1,0 +1,9 @@
+hello
+test
+-> const n = 10
+(godebug) next
+-> _ = n
+(godebug) print n
+10
+(godebug) continue
+Hello
