@@ -423,7 +423,7 @@ func doOutput(args []string) {
 	exitIfErr(outputFlags.Parse(args))
 
 	var conf loader.Config
-	rest, err := conf.FromArgs(args, true)
+	rest, err := conf.FromArgs(outputFlags.Args(), true)
 	if len(rest) > 0 {
 		fmt.Fprintf(os.Stderr, "Unrecognized arguments:\n%v\n\n", strings.Join(rest, "\n"))
 	}
