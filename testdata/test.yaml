@@ -92,6 +92,47 @@ transcript: |
     PASS
 
 ---
+desc: when -godebugwork is passed, should print temp directory and not delete it on exit
+invocations:
+    - dir: /
+      cmd: godebug test -godebugwork testpkg/subdir
+creates:
+    - $TMP/src/testpkg/subdir/pkg_test.go
+
+transcript: |
+    $TMP
+    -> foo.Foo()
+    (godebug) step
+    foo
+    -> _ = "finishing test"
+    (godebug) step
+    PASS
+
+godebugwork: true
+
+---
+desc: when -godebugwork is passed, should print temp directory and not delete it on exit
+invocations:
+    - dir: /
+      cmd: godebug test -godebugwork -instrument foo testpkg/subdir
+creates:
+    - $TMP/src/testpkg/subdir/pkg_test.go
+    - $TMP/src/foo/foo.go
+
+transcript: |
+    $TMP
+    -> foo.Foo()
+    (godebug) step
+    -> fmt.Println("foo")
+    (godebug) step
+    foo
+    -> _ = "finishing test"
+    (godebug) step
+    PASS
+
+godebugwork: true
+
+---
 desc: SHOULD be able to step into external packages that HAVE been flagged with -instrument.
 invocations:
     - dir: /gopath/src/testpkg/subdir

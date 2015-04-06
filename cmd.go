@@ -25,6 +25,7 @@ var (
 
 	runTestFlags flag.FlagSet
 	instrument   = runTestFlags.String("instrument", "", "extra packages to enable for debugging")
+	work         = runTestFlags.Bool("godebugwork", false, "print the name of the temporary work directory and do not delete it when exiting")
 )
 
 func usage() {
@@ -48,7 +49,7 @@ Use "godebug help [command]" for more information about a command.
 
 func runUsage() {
 	log.Print(
-		`usage: godebug run [-instrument pkgs...] gofiles... [--] [arguments...]
+		`usage: godebug run [-godebugwork] [-instrument pkgs...] gofiles... [--] [arguments...]
 
 Run is a wrapper around 'go run'. It generates debugging code for
 the named Go source files and runs 'go run' on the result.
@@ -61,12 +62,15 @@ the debugging session you will not be able to step into function
 calls from imported packages. To instrument other packages,
 pass the -instrument flag. Packages are comma-separated and
 must not be relative.
+
+If -godebugwork is set, godebug will print the name of the
+temporary work directory and not delete it when exiting.
 `)
 }
 
 func testUsage() {
 	log.Print(
-		`usage: godebug test [-instrument pkgs...] [packages] [flags for test binary]
+		`usage: godebug test [-godebugwork] [-instrument pkgs...] [packages] [flags for test binary]
 
 Test is a wrapper around 'go test'. It generates debugging code for
 the tests in the named packages and runs 'go test' on the result.
@@ -79,6 +83,9 @@ debugging session you will not be able to step into function
 calls from imported packages. To instrument other packages,
 pass the -instrument flag. Packages are comma-separated and
 must not be relative.
+
+If -godebugwork is set, godebug will print the name of the
+temporary work directory and not delete it when exiting.
 
 See also: 'go help testflag'.
 `)
@@ -220,14 +227,19 @@ func doTest(args []string) {
 func generateSourceFiles(conf *loader.Config, subcommand string) (tmpDirPath string) {
 	// Make a temp directory.
 	tmpDir := makeTmpDir()
+	if *work {
+		// Print the name of the directory and don't clean it up on exit.
+		fmt.Println(tmpDir)
+	} else {
+		// Clean up the directory on exit.
+		atexit.Run(func() {
+			removeDir(tmpDir)
+		})
+	}
 
-	// Make sure we clean it up if we get killed early.
-	atexit.Run(func() {
-		removeDir(tmpDir)
-	})
-
-	// This was added because conf.Load() was failing when a package was not installed in GOPATH/pkg/.
-	// There is probably a better solution.
+	// Load the whole program from source files. This almost certainly causes more work than we need to do,
+	// but it's an easy fix for a few problems I've encountered. Deleting this may be a good target for
+	// future optimization work.
 	conf.SourceImports = true
 
 	// Mark the extra packages we want to instrument.
@@ -436,33 +448,24 @@ func doOutput(args []string) {
 }
 
 func parseTestArguments(args []string) (packages, testFlags []string) {
-	// format: [-instrument pkgs...] [packages] [testFlags]
+	// format: [-godebugwork] [-instrument pkgs...] [packages] [testFlags]
 
-	if len(args) == 0 {
-		return
-	}
-
-	// -instrument
-	if strings.HasPrefix(args[0], "-instrument") || strings.HasPrefix(args[0], "--instrument") {
-		if strings.Contains(args[0], "=") {
-			exitIfErr(runTestFlags.Parse(args[0:1]))
-			args = args[1:]
-		} else {
-			exitIfErr(runTestFlags.Parse(args[0:2]))
-			args = args[2:]
-		}
-	}
-
-	// Find division between [packages] and [testflags]
+	// Find first unrecognized flag.
 	sep := len(args)
-	for i := range args {
-		if strings.HasPrefix(args[i], "-") {
+	for i, arg := range args {
+		if strings.HasPrefix(arg, "--") {
+			arg = arg[1:]
+		}
+		if strings.HasPrefix(arg, "-") &&
+			!strings.HasPrefix(arg, "-instrument") &&
+			!strings.HasPrefix(arg, "-godebugwork") {
 			sep = i
 			break
 		}
 	}
 
-	return args[:sep], args[sep:]
+	runTestFlags.Parse(args[:sep])
+	return runTestFlags.Args(), args[sep:]
 }
 
 var (

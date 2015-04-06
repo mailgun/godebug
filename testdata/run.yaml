@@ -18,6 +18,47 @@ transcript: |
     Hello, world!
 
 ---
+desc: when -godebugwork is passed, should print temp directory and not delete it on exit
+invocations:
+    - dir: /
+      cmd: godebug run -godebugwork a.go
+creates:
+    - $TMP/a.go
+
+transcript: |
+    $TMP
+    -> foo.HelloWorld()
+    (godebug) step
+    Hello, world!
+    -> foo.HelloWorld()
+    (godebug) next
+    Hello, world!
+
+godebugwork: true
+
+---
+desc: when -godebugwork is passed, should print temp directory and not delete it on exit
+invocations:
+    - dir: /
+      cmd: godebug run -godebugwork -instrument=foo a.go
+creates:
+    - $TMP/a.go
+    - $TMP/src/foo/foo.go
+
+transcript: |
+    $TMP
+    -> foo.HelloWorld()
+    (godebug) step
+    -> fmt.Println("Hello, world!")
+    (godebug) step
+    Hello, world!
+    -> foo.HelloWorld()
+    (godebug) next
+    Hello, world!
+
+godebugwork: true
+
+---
 # 'godebug run' with multiple packages passed to -instrument
 # There are three imported packages: foo, bar, an baz.
 # We can step into bar and baz because we instrumented them, but not foo.

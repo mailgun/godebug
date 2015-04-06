@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -62,6 +63,7 @@ type testCase struct {
 	Desc, Transcript string
 	Creates          []string
 	NonzeroExit      bool `yaml:"nonzero_exit"`
+	Godebugwork      bool
 }
 
 func parseCases(t *testing.T, filename string) []testCase {
@@ -124,13 +126,47 @@ func runTest(t *testing.T, godebug, filename string, tt testCase, i int, session
 
 	// Check that we created the files we expected and did not create
 	// any files we did not expect.
-	errs = append(errs, checkCreatedFiles(t, tt.Creates, createdFiles)...)
+	errs = append(errs, checkCreatedFiles(t, createdFiles, tt.Creates)...)
+
+	if tt.Godebugwork {
+		output, err = checkGodebugwork(t, session.fullSession, output)
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
 
 	got := interleaveCommands(session.input, output)
 	if equivalent(got, session.fullSession) {
 		return
 	}
 	errs = append(errs, fmt.Sprintf("golden transcript did not match actual transcript. Diff:\n\n%v", diff.Diff(string(session.fullSession), string(got))))
+}
+
+func checkGodebugwork(t *testing.T, transcript, output []byte) ([]byte, error) {
+	if !bytes.HasPrefix(transcript, []byte("$TMP\n")) {
+		return output, errors.New(`incorrect test: set "godebugwork: true" but did not prepend "$TMP\n" to the output`)
+	}
+
+	tmpDir := string(bytes.SplitN(output, newline, 2)[0])
+	if !strings.HasPrefix(tmpDir, os.TempDir()) {
+		return output, fmt.Errorf("got %q as first line of output, expected a temporary directory", tmpDir)
+	}
+
+	_, err := os.Stat(tmpDir)
+	if os.IsNotExist(err) {
+		return output, fmt.Errorf("godebug deleted the temporary directory %q when -godebugwork was passed", tmpDir)
+	}
+
+	if err != nil {
+		return output, fmt.Errorf("failed to stat temporary directory %q:  %s", tmpDir, err)
+	}
+
+	output = append([]byte("$TMP\n"), output[len(tmpDir)+1:]...)
+	if err = os.RemoveAll(tmpDir); err != nil {
+		return output, fmt.Errorf("failed to remove temporary directory: %v", err)
+	}
+
+	return output, nil
 }
 
 func checkCreatedFiles(t *testing.T, g, w []string) (errs []string) {
