@@ -170,6 +170,9 @@ func checkGodebugwork(t *testing.T, transcript, output []byte) ([]byte, error) {
 }
 
 func checkCreatedFiles(t *testing.T, g, w []string) (errs []string) {
+	for i, f := range w {
+		w[i] = filepath.FromSlash(f)
+	}
 	got, want := listToMap(g), listToMap(w)
 	for f := range got {
 		if !want[f] {
