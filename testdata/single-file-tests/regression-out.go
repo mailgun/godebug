@@ -87,6 +87,12 @@ func main() {
 	scope.Constant("n", n)
 	godebug.Line(ctx, scope, 44)
 	_ = n
+	godebug.Line(ctx, scope, 46)
+	name1(5)
+	godebug.Line(ctx, scope, 47)
+	name2()
+	godebug.Line(ctx, scope, 48)
+	T{}.name3()
 }
 func _switch() int {
 	var result1 int
@@ -97,16 +103,16 @@ func _switch() int {
 		return result1
 	}
 	defer godebug.ExitFunc(ctx)
-	godebug.Line(ctx, regression_in_go_scope, 49)
+	godebug.Line(ctx, regression_in_go_scope, 53)
 	switch {
-	case godebug.Case(ctx, regression_in_go_scope, 50):
+	case godebug.Case(ctx, regression_in_go_scope, 54):
 		panic("impossible")
 	case false:
-		godebug.Line(ctx, regression_in_go_scope, 51)
+		godebug.Line(ctx, regression_in_go_scope, 55)
 		return 4
 	default:
-		godebug.Line(ctx, regression_in_go_scope, 52)
-		godebug.Line(ctx, regression_in_go_scope, 53)
+		godebug.Line(ctx, regression_in_go_scope, 56)
+		godebug.Line(ctx, regression_in_go_scope, 57)
 		return 5
 	}
 }
@@ -119,20 +125,69 @@ func _select() int {
 		return result1
 	}
 	defer godebug.ExitFunc(ctx)
-	godebug.Select(ctx, regression_in_go_scope, 59)
+	godebug.Select(ctx, regression_in_go_scope, 63)
 	select {
-	case <-godebug.Comm(ctx, regression_in_go_scope, 60):
+	case <-godebug.Comm(ctx, regression_in_go_scope, 64):
 		panic("impossible")
 	case <-make(chan bool):
-		godebug.Line(ctx, regression_in_go_scope, 60)
-		godebug.Line(ctx, regression_in_go_scope, 61)
+		godebug.Line(ctx, regression_in_go_scope, 64)
+		godebug.Line(ctx, regression_in_go_scope, 65)
 		return 4
 	default:
-		godebug.Line(ctx, regression_in_go_scope, 62)
-		godebug.Line(ctx, regression_in_go_scope, 63)
+		godebug.Line(ctx, regression_in_go_scope, 66)
+		godebug.Line(ctx, regression_in_go_scope, 67)
 		return 5
 	case <-godebug.EndSelect(ctx, regression_in_go_scope):
 		panic("impossible")
+	}
+}
+func name1(_name1 int) {
+	ctx, _ok := godebug.EnterFunc(func() {
+		name1(_name1)
+	})
+	if !_ok {
+		return
+	}
+	defer godebug.ExitFunc(ctx)
+	scope := regression_in_go_scope.EnteringNewChildScope()
+	scope.Declare("name1", &_name1)
+	godebug.Line(ctx, scope, 73)
+	if true {
+		godebug.Line(ctx, scope, 74)
+		_ = _name1
+	}
+}
+func name2() (_name2 string) {
+	ctx, _ok := godebug.EnterFunc(func() {
+		_name2 = name2()
+	})
+	if !_ok {
+		return _name2
+	}
+	defer godebug.ExitFunc(ctx)
+	scope := regression_in_go_scope.EnteringNewChildScope()
+	scope.Declare("name2", &_name2)
+	godebug.Line(ctx, scope, 80)
+	if true {
+		godebug.Line(ctx, scope, 81)
+		_name2 = "foo"
+	}
+	godebug.Line(ctx, scope, 83)
+	return _name2
+}
+type T struct{}
+func (_name3 T) name3() {
+	ctx, _ok := godebug.EnterFunc(_name3.name3)
+	if !_ok {
+		return
+	}
+	defer godebug.ExitFunc(ctx)
+	scope := regression_in_go_scope.EnteringNewChildScope()
+	scope.Declare("name3", &_name3)
+	godebug.Line(ctx, scope, 90)
+	if true {
+		godebug.Line(ctx, scope, 91)
+		_ = _name3
 	}
 }
 
@@ -180,6 +235,10 @@ func main() {
 	godebug.SetTrace()
 	const n = 10
 	_ = n
+
+	name1(5)
+	name2()
+	T{}.name3()
 }
 
 func _switch() int {
@@ -199,6 +258,30 @@ func _select() int {
 		return 4
 	default:
 		return 5
+	}
+}
+
+// Function shares a name with an input parameter.
+func name1(name1 int) {
+	if true {
+		_ = name1
+	}
+}
+
+// Function shares a name with an output parameter.
+func name2() (name2 string) {
+	if true {
+		name2 = "foo"
+	}
+	return name2
+}
+
+type T struct{}
+
+// Function shares a name with its receiver
+func (name3 T) name3() {
+	if true {
+		_ = name3
 	}
 }
 `

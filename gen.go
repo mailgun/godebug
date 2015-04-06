@@ -411,6 +411,10 @@ func (v *visitor) finalizeNode() {
 		declOuts, outputs := inputsOrOutputs(i.Type.Results, idents.result)
 		declIns, inputs := inputsOrOutputs(i.Type.Params, idents.input)
 		prepend := append(declIns, declOuts...)
+		// We will refer to this function by name when we call genEnterFunc. If any of the
+		// parameters have the same name as the function, they will conflict. To get around that,
+		// rename any such parameters now.
+		rewriteConflictingNames(i)
 		prepend = append(prepend, genEnterFunc(i, inputs, outputs)...)
 		if !(pkg.Name() == "main" && i.Name.Name == "main") {
 			prepend = append(prepend, &ast.DeferStmt{
@@ -816,6 +820,26 @@ func createConflictFreeName(name string, parent ast.Node, hasSuffix bool) string
 	return v.getName()
 }
 
+func createConflictFreeNameCheckIdents(name string, parent ast.Node) string {
+	v := &nameVisitor{
+		base:   name,
+		suffix: false,
+		conflicts: map[string]bool{
+			idents.ctx:          true,
+			idents.fileContents: true,
+			idents.fileScope:    true,
+			idents.godebug:      true,
+			idents.input:        true,
+			idents.ok:           true,
+			idents.receiver:     true,
+			idents.result:       true,
+			idents.scope:        true,
+		},
+	}
+	ast.Walk(v, parent)
+	return v.getName()
+}
+
 type nameVisitor struct {
 	base      string
 	suffix    bool
@@ -926,6 +950,41 @@ func parseCgoFile(filename string) (*ast.File, *token.FileSet) {
 		}
 	}
 	return nil, nil
+}
+
+func rewriteConflictingNames(fn *ast.FuncDecl) {
+	for _, fieldList := range []*ast.FieldList{fn.Recv, fn.Type.Params, fn.Type.Results} {
+		if fieldList == nil {
+			continue
+		}
+		for _, f := range fieldList.List {
+			for _, name := range f.Names {
+				if name.Name == fn.Name.Name {
+					oldName := name.Name
+					newName := createConflictFreeNameCheckIdents(name.Name, fn)
+					rewriteFn := func(node ast.Node) bool {
+						if ident, ok := node.(*ast.Ident); ok && ident.Name == oldName {
+							ident.Name = newName
+						}
+						return true
+					}
+					// Instead of walking all of fn, walk fn.Recv, fn.Type, and fn.Body.
+					// If we walked all of fn we would rewrite the name of the function itself
+					// in addition to the parameter we are rewriting.
+					if fn.Recv != nil && fn.Recv.List != nil {
+						ast.Inspect(fn.Recv, rewriteFn)
+					}
+					if fn.Type != nil {
+						ast.Inspect(fn.Type, rewriteFn)
+					}
+					if fn.Body != nil {
+						ast.Inspect(fn.Body, rewriteFn)
+					}
+					return // at most one parameter can share a name with the function
+				}
+			}
+		}
+	}
 }
 
 func isBuiltinFunc(fn ast.Expr, name string) bool {

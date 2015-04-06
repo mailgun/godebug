@@ -42,6 +42,10 @@ func main() {
 	godebug.SetTrace()
 	const n = 10
 	_ = n
+
+	name1(5)
+	name2()
+	T{}.name3()
 }
 
 func _switch() int {
@@ -61,5 +65,29 @@ func _select() int {
 		return 4
 	default:
 		return 5
+	}
+}
+
+// Function shares a name with an input parameter.
+func name1(name1 int) {
+	if true {
+		_ = name1
+	}
+}
+
+// Function shares a name with an output parameter.
+func name2() (name2 string) {
+	if true {
+		name2 = "foo"
+	}
+	return name2
+}
+
+type T struct{}
+
+// Function shares a name with its receiver
+func (name3 T) name3() {
+	if true {
+		_ = name3
 	}
 }
