@@ -5,7 +5,7 @@ A cross-platform debugger for Go.
 
 ### How?
 
-`godebug` uses source code generation to instrument your program with debugging calls. [go tool cover](http://blog.golang.org/cover) takes a similar approach to code coverage. When you run `godebug`, it parses your program, instruments function calls, variable declarations, and statement lines, and outputs the resulting code somewhere, and runs it. When this modified code runs, it stops at breakpoints and lets you step through the program and inspect variables.
+`godebug` uses source code generation to instrument your program with debugging calls. [go tool cover](http://blog.golang.org/cover) takes a similar approach to code coverage. When you run `godebug`, it parses your program, instruments function calls, variable declarations, and statement lines, outputs the resulting code somewhere, and runs it. When this modified code runs, it stops at breakpoints and lets you step through the program and inspect variables.
 
 For more detail, see the [end of this README](#how-it-works-more-detail).
 
