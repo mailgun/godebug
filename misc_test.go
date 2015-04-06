@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -95,7 +96,8 @@ func TestUpdatedSource(t *testing.T) {
 
 	// Install the first version of foo.
 	cmd := exec.Command("go", "install", "foo")
-	cmd.Env = []string{"GOPATH=" + tmpDir}
+	cmd.Env = os.Environ()
+	overrideVar(cmd, "GOPATH", tmpDir)
 	checkErr(t, cmd.Run())
 
 	// Save the package file for later. Also serves to verify that it was installed.
@@ -110,7 +112,8 @@ func TestUpdatedSource(t *testing.T) {
 	// Check that godebug run uses the new version of foo.
 	godebug := compileGodebug(t)
 	cmd = exec.Command(godebug, "run", filepath.Join(tmpDir, "src", "bar", "main.go"))
-	cmd.Env = []string{"GOPATH=" + tmpDir, "PATH=" + os.Getenv("PATH")}
+	cmd.Env = os.Environ()
+	overrideVar(cmd, "GOPATH", tmpDir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("godebug run failed: %v\n\n%s", err, out)
@@ -129,7 +132,8 @@ func TestUpdatedSource(t *testing.T) {
 
 	// Check that godebug test also uses the new version of foo.
 	cmd = exec.Command(godebug, "test", "bar")
-	cmd.Env = []string{"GOPATH=" + tmpDir, "PATH=" + os.Getenv("PATH")}
+	cmd.Env = os.Environ()
+	overrideVar(cmd, "GOPATH", tmpDir)
 	out, err = cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("godebug run failed: %v\n\n%s", err, out)
@@ -171,4 +175,14 @@ func checkErr(t *testing.T, err error) {
 		buf := make([]byte, 1024)
 		t.Fatalf("%v\n\n%s", err, buf[:runtime.Stack(buf, false)])
 	}
+}
+
+func overrideVar(cmd *exec.Cmd, key, val string) {
+	for i, env := range cmd.Env {
+		if strings.SplitN(env, "=", 2)[0] == key {
+			cmd.Env[i] = key + "=" + val
+			return
+		}
+	}
+	cmd.Env = append(cmd.Env, key+"="+val)
 }

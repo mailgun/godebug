@@ -10,7 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -66,7 +66,7 @@ func generate(prog *loader.Program, writerFor func(importPath, filename string) 
 				fmt.Fprint(os.Stderr, "Error reading file:", err)
 				os.Exit(1)
 			}
-			quotedContents := rawQuote(string(b))
+			quotedContents := rawQuote(string(normalizeCRLF(b)))
 			ast1, fs1 := parseCgoFile(fname)
 			if ast1 != nil {
 				f = ast1
@@ -808,7 +808,7 @@ func generateGodebugIdentifiers(f *ast.File) {
 			return '_'
 		}
 		return r
-	}, path.Base(fs.Position(f.Pos()).Filename))
+	}, filepath.Base(fs.Position(f.Pos()).Filename))
 	idents.fileScope = createConflictFreeName(base+"_scope", f, false)
 	idents.fileContents = createConflictFreeName(base+"_contents", f, false)
 }
@@ -990,4 +990,8 @@ func rewriteConflictingNames(fn *ast.FuncDecl) {
 func isBuiltinFunc(fn ast.Expr, name string) bool {
 	ident, ok := fn.(*ast.Ident)
 	return ok && ident.Name == name && _types[fn].IsBuiltin()
+}
+
+func normalizeCRLF(b []byte) []byte {
+	return bytes.Replace(b, []byte("\r\n"), []byte("\n"), -1)
 }

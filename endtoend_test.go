@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -33,7 +34,11 @@ func compileGodebug(t *testing.T) (filename string) {
 	}
 	f.Close()
 	godebug := f.Name()
-	cmd := exec.Command("go", "build", "-o", godebug)
+	var exe string
+	if runtime.GOOS == "windows" {
+		exe = ".exe"
+	}
+	cmd := exec.Command("go", "build", "-o", godebug+exe)
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
@@ -133,6 +138,7 @@ func compareGolden(t *testing.T, godebug, test string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	golden = normalizeCRLF(golden)
 	cmd := exec.Command(godebug, "output", testInput(test))
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
@@ -148,9 +154,7 @@ func compareGolden(t *testing.T, godebug, test string) {
 			}
 			return
 		}
-		diff := getDiff(goldenOutput(test), buf.Bytes())
-		fmt.Println(buf.String())
-		t.Errorf("%s: got != want. Diff:\n%s", test, diff)
+		t.Errorf("%s: want != got. Diff:\n%s", test, diff.Diff(string(golden), buf.String()))
 	}
 }
 
@@ -247,6 +251,8 @@ func parseSession(t *testing.T, filename string) *session {
 func parseSessionFromBytes(b []byte) *session {
 	var s session
 
+	b = normalizeCRLF(b)
+
 	if bytes.HasSuffix(b, newline) {
 		b = b[:len(b)-1]
 	}
@@ -255,6 +261,9 @@ func parseSessionFromBytes(b []byte) *session {
 	lines = removeSessionComment(lines)
 
 	for _, line := range lines {
+		if bytes.HasSuffix(line, []byte{'\r'}) { // convert CRLF to LF
+			line = line[:len(line)-1]
+		}
 		line = append(line, '\n')
 
 		if bytes.HasPrefix(line, prompt) {
@@ -275,13 +284,4 @@ func removeSessionComment(lines [][]byte) [][]byte {
 		}
 	}
 	return nil
-}
-
-func getDiff(filename string, inBuf []byte) []byte {
-	var buf bytes.Buffer
-	cmd := exec.Command("diff", "-", filename)
-	cmd.Stdin = bytes.NewReader(inBuf)
-	cmd.Stdout = &buf
-	cmd.Run()
-	return buf.Bytes()
 }

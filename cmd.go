@@ -464,7 +464,7 @@ func parseTestArguments(args []string) (packages, testFlags []string) {
 		}
 	}
 
-	runTestFlags.Parse(args[:sep])
+	exitIfErr(runTestFlags.Parse(args[:sep]))
 	return runTestFlags.Args(), args[sep:]
 }
 
