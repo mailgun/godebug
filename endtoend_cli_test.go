@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/diff"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 )
 
 // This file runs tests in the testdata directory, excluding those in testdata/single-file-tests
