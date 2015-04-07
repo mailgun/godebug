@@ -564,6 +564,9 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			return childVisitor
 		}
 
+	case *ast.TypeSwitchStmt:
+		childVisitor.parentIsExprSwitch = false
+
 	case *ast.CaseClause:
 		if v.stmtBuf != nil {
 			if v.parentIsExprSwitch && len(i.List) > 0 {

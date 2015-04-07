@@ -190,6 +190,29 @@ func (_name3 T) name3() {
 		_ = _name3
 	}
 }
+var nestedSwitch = func() {
+	fn := func(ctx *godebug.Context) {
+		godebug.Line(ctx, regression_in_go_scope, 96)
+		var foo interface {
+		} = 5
+		scope := regression_in_go_scope.EnteringNewChildScope()
+		scope.Declare("foo", &foo)
+		godebug.Line(ctx, scope, 98)
+		switch {
+		default:
+			godebug.Line(ctx, scope, 99)
+			godebug.Line(ctx, scope, 100)
+			switch foo.(type) {
+			case int:
+				godebug.Line(ctx, scope, 101)
+			}
+		}
+	}
+	if ctx, _ok := godebug.EnterFuncLit(fn); _ok {
+		defer godebug.ExitFunc(ctx)
+		fn(ctx)
+	}
+}
 
 var regression_in_go_contents = `package main
 
@@ -282,6 +305,17 @@ type T struct{}
 func (name3 T) name3() {
 	if true {
 		_ = name3
+	}
+}
+
+var nestedSwitch = func() {
+	var foo interface{} = 5
+	// Type switch nested inside expression switch
+	switch {
+	default:
+		switch foo.(type) {
+		case int:
+		}
 	}
 }
 `

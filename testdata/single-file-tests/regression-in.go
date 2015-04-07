@@ -91,3 +91,14 @@ func (name3 T) name3() {
 		_ = name3
 	}
 }
+
+var nestedSwitch = func() {
+	var foo interface{} = 5
+	// Type switch nested inside expression switch
+	switch {
+	default:
+		switch foo.(type) {
+		case int:
+		}
+	}
+}
