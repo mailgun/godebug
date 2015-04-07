@@ -106,7 +106,7 @@ func _switch() int {
 	godebug.Line(ctx, regression_in_go_scope, 53)
 	switch {
 	case godebug.Case(ctx, regression_in_go_scope, 54):
-		panic("impossible")
+		fallthrough
 	case false:
 		godebug.Line(ctx, regression_in_go_scope, 55)
 		return 4
@@ -213,6 +213,38 @@ var nestedSwitch = func() {
 		fn(ctx)
 	}
 }
+func init() {
+	doFallthrough()
+}
+func doFallthrough() {
+	ctx, _ok := godebug.EnterFunc(doFallthrough)
+	if !_ok {
+		return
+	}
+	defer godebug.ExitFunc(ctx)
+	godebug.Line(ctx, regression_in_go_scope, 112)
+	fellthrough := false
+	scope := regression_in_go_scope.EnteringNewChildScope()
+	scope.Declare("fellthrough", &fellthrough)
+	godebug.Line(ctx, scope, 113)
+	switch {
+	case godebug.Case(ctx, scope, 114):
+		fallthrough
+	case true:
+		godebug.Line(ctx, scope, 115)
+		fallthrough
+	case godebug.Case(ctx, scope, 116):
+		fallthrough
+	case false:
+		godebug.Line(ctx, scope, 117)
+		fellthrough = true
+	}
+	godebug.Line(ctx, scope, 119)
+	if !fellthrough {
+		godebug.Line(ctx, scope, 120)
+		panic("fallthrough statement did not work")
+	}
+}
 
 var regression_in_go_contents = `package main
 
@@ -316,6 +348,24 @@ var nestedSwitch = func() {
 		switch foo.(type) {
 		case int:
 		}
+	}
+}
+
+func init() {
+	doFallthrough()
+}
+
+// fallthrough should work
+func doFallthrough() {
+	fellthrough := false
+	switch {
+	case true:
+		fallthrough
+	case false:
+		fellthrough = true
+	}
+	if !fellthrough {
+		panic("fallthrough statement did not work")
 	}
 }
 `

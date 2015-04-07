@@ -25,12 +25,12 @@ func main() {
 	godebug.Line(ctx, switch_in_go_scope, 16)
 	switch {
 	case godebug.Case(ctx, switch_in_go_scope, 17):
-		panic("impossible")
+		fallthrough
 	case false:
 		godebug.Line(ctx, switch_in_go_scope, 18)
 		fmt.Println("false")
 	case godebug.Case(ctx, switch_in_go_scope, 19):
-		panic("impossible")
+		fallthrough
 	case true:
 		godebug.Line(ctx, switch_in_go_scope, 20)
 		fmt.Println("true")
@@ -42,15 +42,15 @@ func main() {
 	godebug.Line(ctx, scope, 25)
 	switch i {
 	case godebug.Case(ctx, scope, 26):
-		panic("impossible")
+		fallthrough
 	case foo():
 	default:
 		godebug.Line(ctx, scope, 27)
 	case godebug.Case(ctx, scope, 28):
-		panic("impossible")
+		fallthrough
 	case 5, 4, 1:
 	case godebug.Case(ctx, scope, 29):
-		panic("impossible")
+		fallthrough
 	case 2:
 	}
 	godebug.Line(ctx, scope, 32)
@@ -70,10 +70,10 @@ func main() {
 		scope.Declare("b", &b)
 		switch b := 2; b == 6 {
 		case godebug.Case(ctx, scope, 40):
-			panic("impossible")
+			fallthrough
 		case true:
 		case godebug.Case(ctx, scope, 41):
-			panic("impossible")
+			fallthrough
 		case false:
 		}
 	}

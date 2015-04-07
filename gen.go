@@ -575,7 +575,7 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 						List: []ast.Expr{
 							newCall(idents.godebug, "Case", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(i.Pos())))},
 						// In case this switch is a terminating statement, make this clause be terminating.
-						Body: astPrintf(`panic("impossible")`)})
+						Body: []ast.Stmt{&ast.BranchStmt{Tok: token.FALLTHROUGH}}})
 			}
 			v.stmtBuf = append(v.stmtBuf, i)
 		}

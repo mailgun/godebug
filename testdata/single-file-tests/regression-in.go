@@ -102,3 +102,21 @@ var nestedSwitch = func() {
 		}
 	}
 }
+
+func init() {
+	doFallthrough()
+}
+
+// fallthrough should work
+func doFallthrough() {
+	fellthrough := false
+	switch {
+	case true:
+		fallthrough
+	case false:
+		fellthrough = true
+	}
+	if !fellthrough {
+		panic("fallthrough statement did not work")
+	}
+}
