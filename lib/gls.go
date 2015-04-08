@@ -22,7 +22,7 @@ func (w wrapper) SetValues(contextCall func(), keyVal ...interface{}) {
 	}
 	vals := make(gls.Values)
 	for i := 0; i < len(keyVal); i += 2 {
-		vals[keyVal[i]] = vals[keyVal[i+1]]
+		vals[keyVal[i]] = keyVal[i+1]
 	}
 
 	w.ContextManager.SetValues(vals, contextCall)
