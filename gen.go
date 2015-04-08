@@ -921,7 +921,7 @@ func (v *recoverVisitor) Visit(node ast.Node) ast.Visitor {
 }
 
 func rewriteRecoverCall(parent, _recover ast.Node) {
-	rewritten := astPrintfExpr("<-(<-_godebug_recover_chan_)")
+	rewritten, _ := parser.ParseExpr("<-(<-_godebug_recover_chan_)")
 	rewritten.(*ast.UnaryExpr).OpPos = _recover.Pos()
 	v := reflect.ValueOf(parent).Elem()
 	for i := 0; i < v.NumField(); i++ {

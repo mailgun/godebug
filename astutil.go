@@ -63,10 +63,6 @@ func replaceIdents(format string) string {
 	return r.Replace(format)
 }
 
-func astPrintfExpr(format string, a ...interface{}) ast.Expr {
-	return astPrintf("_ = "+format, a...)[0].(*ast.AssignStmt).Rhs[0]
-}
-
 // not thread safe.
 func astPrintf(format string, a ...interface{}) []ast.Stmt {
 	format = replaceIdents(format)
