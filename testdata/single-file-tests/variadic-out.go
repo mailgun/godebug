@@ -1,6 +1,9 @@
 package main
+
 import "github.com/mailgun/godebug/lib"
+
 var variadic_in_go_scope = godebug.EnteringNewScope(variadic_in_go_contents)
+
 func Varargs(i ...int) int {
 	var result1 int
 	ctx, ok := godebug.EnterFunc(func() {
@@ -15,6 +18,7 @@ func Varargs(i ...int) int {
 	godebug.Line(ctx, scope, 4)
 	return 6
 }
+
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
 	if !ok {

@@ -1,9 +1,13 @@
 package main
+
 import (
 	"log"
+
 	"github.com/mailgun/godebug/lib"
 )
+
 var recover_in_go_scope = godebug.EnteringNewScope(recover_in_go_contents)
+
 func r1() {
 	quit := make(chan struct {
 	})
@@ -31,6 +35,7 @@ func r1() {
 		}
 	}
 }
+
 func r2() {
 	quit := make(chan struct {
 	})
@@ -70,6 +75,7 @@ func r2() {
 		}
 	}
 }
+
 var r3 = func() {
 	quit := make(chan struct {
 	})
@@ -97,6 +103,7 @@ var r3 = func() {
 		}
 	}
 }
+
 var r4 = func() {
 	quit := make(chan struct {
 	})
@@ -136,6 +143,7 @@ var r4 = func() {
 		}
 	}
 }
+
 func doPanic(recoverer func()) {
 	ctx, ok := godebug.EnterFunc(func() {
 		doPanic(recoverer)
@@ -152,6 +160,7 @@ func doPanic(recoverer func()) {
 	godebug.Line(ctx, scope, 37)
 	panic("doPanic: panic")
 }
+
 func doNestedRecover(recoverer func()) {
 	ctx, ok := godebug.EnterFunc(func() {
 		doNestedRecover(recoverer)
@@ -201,6 +210,7 @@ func doNestedRecover(recoverer func()) {
 	godebug.Line(ctx, scope, 48)
 	panic("doNestedRecover: panic")
 }
+
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
 	if !ok {

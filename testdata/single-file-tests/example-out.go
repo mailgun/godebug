@@ -1,9 +1,13 @@
 package main
+
 import (
 	"fmt"
+
 	"github.com/mailgun/godebug/lib"
 )
+
 var example_in_go_scope = godebug.EnteringNewScope(example_in_go_contents)
+
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
 	if !ok {
@@ -34,6 +38,7 @@ func main() {
 		}
 	}
 }
+
 func add(n, m int) int {
 	var result1 int
 	ctx, ok := godebug.EnterFunc(func() {
@@ -58,6 +63,7 @@ func add(n, m int) int {
 	godebug.Line(ctx, scope, 29)
 	return n + m
 }
+
 func mul(n, m int) int {
 	var result1 int
 	ctx, ok := godebug.EnterFunc(func() {

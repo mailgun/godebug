@@ -1,11 +1,17 @@
 package main
+
 import "github.com/mailgun/godebug/lib"
+
 var init_in_go_scope = godebug.EnteringNewScope(init_in_go_contents)
+
 func init() {
 	a = 5
 }
+
 var a = 3
+
 type Foo int
+
 func (f *Foo) init() {
 	ctx, ok := godebug.EnterFunc(f.init)
 	if !ok {
@@ -17,6 +23,7 @@ func (f *Foo) init() {
 	godebug.Line(ctx, scope, 14)
 	*f = 1337
 }
+
 func main() {
 }
 

@@ -1,9 +1,12 @@
 package main
+
 import (
 	"fmt"
 	"github.com/mailgun/godebug/lib"
 )
+
 var func_lit_in_go_scope = godebug.EnteringNewScope(func_lit_in_go_contents)
+
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
 	if !ok {
@@ -18,6 +21,7 @@ func main() {
 	godebug.Line(ctx, scope, 8)
 	bar()
 }
+
 var foo = func(a, _ int) (b, _ string) {
 	var result2 string
 	fn := func(ctx *godebug.Context) {
@@ -34,6 +38,7 @@ var foo = func(a, _ int) (b, _ string) {
 	}
 	return b, result2
 }
+
 var bar = func() {
 	fn := func(ctx *godebug.Context) {
 		godebug.Line(ctx, func_lit_in_go_scope, 16)

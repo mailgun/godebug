@@ -1,10 +1,14 @@
 package main
+
 import (
 	godebug "fmt"
 	_godebug "github.com/mailgun/godebug/lib"
 )
+
 var name_conflicts_in_go_scope = _godebug.EnteringNewScope(name_conflicts_in_go_contents)
+
 type Foo int
+
 func (Foo) DoStuff(int) int {
 	var _input1 int
 	var _result1 int
@@ -25,6 +29,7 @@ func (Foo) DoStuff(int) int {
 	_godebug.Line(_ctx, __scope, 10)
 	return 3
 }
+
 var f = func() {
 	fn := func(_ctx *_godebug.Context) {
 		_godebug.Line(_ctx, name_conflicts_in_go_scope, 14)
@@ -39,7 +44,9 @@ var f = func() {
 		fn(_ctx)
 	}
 }
+
 var _scope = 7
+
 func main() {
 	_ctx, __ok := _godebug.EnterFunc(main)
 	if !__ok {

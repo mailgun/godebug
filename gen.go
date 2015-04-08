@@ -31,25 +31,6 @@ var (
 	pkg    *types.Package
 )
 
-type blankLineStripper struct {
-	io.Writer
-	lastWasNewline bool
-	buf            bytes.Buffer
-}
-
-func (w *blankLineStripper) Write(p []byte) (n int, err error) {
-	w.buf.Reset()
-	for _, b := range p {
-		if !(w.lastWasNewline && b == '\n') {
-			_ = w.buf.WriteByte(b) // error is always nil
-		}
-		w.lastWasNewline = b == '\n'
-	}
-	n = len(p) - len(w.buf.Bytes())
-	nn, err := w.Writer.Write(w.buf.Bytes())
-	return n + nn, err
-}
-
 func generate(prog *loader.Program, writerFor func(importPath, filename string) io.WriteCloser) {
 	for _, pkgInfo := range prog.InitialPackages() {
 		defs = pkgInfo.Defs
@@ -82,7 +63,7 @@ func generate(prog *loader.Program, writerFor func(importPath, filename string) 
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
 			out := writerFor(pkg.Path(), fname)
 			defer out.Close()
-			_ = cfg.Fprint(&blankLineStripper{Writer: out}, fs, f)
+			_ = cfg.Fprint(out, fs, f)
 			fmt.Fprintln(out, "\nvar", idents.fileContents, "=", quotedContents)
 		}
 	}

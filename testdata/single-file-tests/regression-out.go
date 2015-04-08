@@ -1,12 +1,16 @@
 package main
+
 import "github.com/mailgun/godebug/lib"
+
 var regression_in_go_scope = godebug.EnteringNewScope(regression_in_go_contents)
+
 func main() {
 	ctx, _ok := godebug.EnterFunc(main)
 	if !_ok {
 		return
 	}
 	godebug.Line(ctx, regression_in_go_scope, 7)
+
 	foo := func(i int) int {
 		var result1 int
 		fn := func(ctx *godebug.Context) {
@@ -26,9 +30,11 @@ func main() {
 	scope := regression_in_go_scope.EnteringNewChildScope()
 	scope.Declare("foo", &foo)
 	godebug.Line(ctx, scope, 10)
+
 	_ = foo
 	{
 		scope := scope.EnteringNewChildScope()
+
 		for _, s := range []string{"foo"} {
 			godebug.Line(ctx, scope, 14)
 			scope.Declare("s", &s)
@@ -38,6 +44,7 @@ func main() {
 		godebug.Line(ctx, scope, 14)
 	}
 	godebug.Line(ctx, scope, 19)
+
 	c := make(chan bool)
 	scope.Declare("c", &c)
 	godebug.Line(ctx, scope, 20)
@@ -54,9 +61,11 @@ func main() {
 	godebug.Line(ctx, scope, 23)
 	<-c
 	godebug.Line(ctx, scope, 26)
+
 	defer println("Hello")
 	defer godebug.Defer(ctx, scope, 26)
 	godebug.Line(ctx, scope, 29)
+
 	if false {
 	} else {
 		godebug.ElseIfSimpleStmt(ctx, scope, 30)
@@ -68,6 +77,7 @@ func main() {
 		}
 	}
 	godebug.Line(ctx, scope, 35)
+
 	m := map[string]int{"test": 5}
 	scope.Declare("m", &m)
 	godebug.Line(ctx, scope, 36)
@@ -81,6 +91,7 @@ func main() {
 			println("test")
 		}
 	}
+
 	godebug.SetTraceGen(ctx)
 	godebug.Line(ctx, scope, 43)
 	const n = 10
@@ -88,12 +99,14 @@ func main() {
 	godebug.Line(ctx, scope, 44)
 	_ = n
 	godebug.Line(ctx, scope, 46)
+
 	name1(5)
 	godebug.Line(ctx, scope, 47)
 	name2()
 	godebug.Line(ctx, scope, 48)
 	T{}.name3()
 }
+
 func _switch() int {
 	var result1 int
 	ctx, _ok := godebug.EnterFunc(func() {
@@ -104,6 +117,7 @@ func _switch() int {
 	}
 	defer godebug.ExitFunc(ctx)
 	godebug.Line(ctx, regression_in_go_scope, 53)
+
 	switch {
 	case godebug.Case(ctx, regression_in_go_scope, 54):
 		fallthrough
@@ -116,6 +130,7 @@ func _switch() int {
 		return 5
 	}
 }
+
 func _select() int {
 	var result1 int
 	ctx, _ok := godebug.EnterFunc(func() {
@@ -126,6 +141,7 @@ func _select() int {
 	}
 	defer godebug.ExitFunc(ctx)
 	godebug.Select(ctx, regression_in_go_scope, 63)
+
 	select {
 	case <-godebug.Comm(ctx, regression_in_go_scope, 64):
 		panic("impossible")
@@ -141,6 +157,7 @@ func _select() int {
 		panic("impossible")
 	}
 }
+
 func name1(_name1 int) {
 	ctx, _ok := godebug.EnterFunc(func() {
 		name1(_name1)
@@ -157,6 +174,7 @@ func name1(_name1 int) {
 		_ = _name1
 	}
 }
+
 func name2() (_name2 string) {
 	ctx, _ok := godebug.EnterFunc(func() {
 		_name2 = name2()
@@ -175,7 +193,9 @@ func name2() (_name2 string) {
 	godebug.Line(ctx, scope, 83)
 	return _name2
 }
+
 type T struct{}
+
 func (_name3 T) name3() {
 	ctx, _ok := godebug.EnterFunc(_name3.name3)
 	if !_ok {
@@ -190,6 +210,7 @@ func (_name3 T) name3() {
 		_ = _name3
 	}
 }
+
 var nestedSwitch = func() {
 	fn := func(ctx *godebug.Context) {
 		godebug.Line(ctx, regression_in_go_scope, 96)
@@ -213,9 +234,11 @@ var nestedSwitch = func() {
 		fn(ctx)
 	}
 }
+
 func init() {
 	doFallthrough()
 }
+
 func doFallthrough() {
 	ctx, _ok := godebug.EnterFunc(doFallthrough)
 	if !_ok {
@@ -245,6 +268,7 @@ func doFallthrough() {
 		panic("fallthrough statement did not work")
 	}
 }
+
 func a() int {
 	var result1 int
 	ctx, _ok := godebug.EnterFunc(func() {
@@ -257,9 +281,11 @@ func a() int {
 	godebug.Line(ctx, regression_in_go_scope, 125)
 	return 0
 }
+
 func init() {
 	switchInit()
 }
+
 func switchInit() {
 	ctx, _ok := godebug.EnterFunc(switchInit)
 	if !_ok {

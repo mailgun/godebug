@@ -1,9 +1,13 @@
 package main
+
 import (
 	"fmt"
+
 	"github.com/mailgun/godebug/lib"
 )
+
 var switch_in_go_scope = godebug.EnteringNewScope(switch_in_go_contents)
+
 func foo() interface{} {
 	var result1 interface{}
 	ctx, ok := godebug.EnterFunc(func() {
@@ -16,6 +20,7 @@ func foo() interface{} {
 	godebug.Line(ctx, switch_in_go_scope, 10)
 	return "hi"
 }
+
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
 	if !ok {
@@ -23,6 +28,7 @@ func main() {
 	}
 	godebug.SetTraceGen(ctx)
 	godebug.Line(ctx, switch_in_go_scope, 16)
+
 	switch {
 	case godebug.Case(ctx, switch_in_go_scope, 17):
 		fallthrough
@@ -36,10 +42,12 @@ func main() {
 		fmt.Println("true")
 	}
 	godebug.Line(ctx, switch_in_go_scope, 23)
+
 	i := 3
 	scope := switch_in_go_scope.EnteringNewChildScope()
 	scope.Declare("i", &i)
 	godebug.Line(ctx, scope, 25)
+
 	switch i {
 	case godebug.Case(ctx, scope, 26):
 		fallthrough
@@ -54,9 +62,11 @@ func main() {
 	case 2:
 	}
 	godebug.Line(ctx, scope, 32)
+
 	var ifc interface{} = i
 	scope.Declare("ifc", &ifc)
 	godebug.Line(ctx, scope, 34)
+
 	switch ifc.(type) {
 	case string:
 		godebug.Line(ctx, scope, 35)
@@ -78,6 +88,7 @@ func main() {
 		}
 	}
 	godebug.Line(ctx, scope, 44)
+
 	switch b := ifc; i := ifc.(type) {
 	case string:
 		godebug.Line(ctx, scope, 45)

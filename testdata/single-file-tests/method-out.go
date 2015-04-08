@@ -1,7 +1,11 @@
 package main
+
 import "github.com/mailgun/godebug/lib"
+
 var method_in_go_scope = godebug.EnteringNewScope(method_in_go_contents)
+
 type Foo int
+
 func (f Foo) Double() Foo {
 	var result1 Foo
 	ctx, ok := godebug.EnterFunc(func() {
@@ -16,6 +20,7 @@ func (f Foo) Double() Foo {
 	godebug.Line(ctx, scope, 6)
 	return f * 2
 }
+
 func (Foo) Seven() Foo {
 	var result1 Foo
 	var receiver Foo
@@ -29,6 +34,7 @@ func (Foo) Seven() Foo {
 	godebug.Line(ctx, method_in_go_scope, 10)
 	return Foo(7)
 }
+
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
 	if !ok {

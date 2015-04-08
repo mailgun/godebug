@@ -1,9 +1,13 @@
 package main
+
 import (
 	"fmt"
+
 	"github.com/mailgun/godebug/lib"
 )
+
 var select_in_go_scope = godebug.EnteringNewScope(select_in_go_contents)
+
 func foo() chan int {
 	var result1 chan int
 	ctx, _ok := godebug.EnterFunc(func() {
@@ -16,6 +20,7 @@ func foo() chan int {
 	godebug.Line(ctx, select_in_go_scope, 10)
 	return make(chan int)
 }
+
 func bar() int {
 	var result1 int
 	ctx, _ok := godebug.EnterFunc(func() {
@@ -28,6 +33,7 @@ func bar() int {
 	godebug.Line(ctx, select_in_go_scope, 14)
 	return 0
 }
+
 func main() {
 	ctx, _ok := godebug.EnterFunc(main)
 	if !_ok {
@@ -48,15 +54,19 @@ func main() {
 		godebug.Line(ctx, scope, 19)
 	}
 	godebug.Line(ctx, scope, 23)
+
 	var r1 int
 	scope.Declare("r1", &r1)
 	godebug.Line(ctx, scope, 24)
 	var ok bool
 	scope.Declare("ok", &ok)
 	godebug.Line(ctx, scope, 26)
+
 	_, _ = r1, ok
+
 	godebug.SetTraceGen(ctx)
 	godebug.Line(ctx, scope, 33)
+
 	go func() {
 		fn := func(ctx *godebug.Context) {
 			godebug.Select(ctx, scope, 34)
@@ -71,6 +81,7 @@ func main() {
 		}
 	}()
 	godebug.Select(ctx, scope, 37)
+
 	select {
 	default:
 		godebug.Line(ctx, scope, 38)
@@ -78,8 +89,10 @@ func main() {
 		panic("impossible")
 	}
 	godebug.Line(ctx, scope, 41)
+
 	c[0] <- 0
 	godebug.Select(ctx, scope, 43)
+
 	select {
 	case <-godebug.Comm(ctx, scope, 44):
 		panic("impossible")
@@ -89,6 +102,7 @@ func main() {
 		panic("impossible")
 	}
 	godebug.Line(ctx, scope, 50)
+
 	c[0] <- 0
 	godebug.Select(ctx, scope, 51)
 	select {
@@ -112,6 +126,7 @@ func main() {
 		panic("impossible")
 	}
 	godebug.Line(ctx, scope, 59)
+
 	c[0] <- 0
 	{
 		godebug.Line(ctx, scope, 61)
@@ -143,6 +158,7 @@ func main() {
 		_ = hi
 	}
 	godebug.Select(ctx, scope, 73)
+
 	select {
 	case <-godebug.Comm(ctx, scope, 74):
 		panic("impossible")
@@ -164,11 +180,14 @@ func main() {
 		panic("impossible")
 	}
 	godebug.Line(ctx, scope, 84)
+
 	c[9] <- 1
 	godebug.Select(ctx, scope, 86)
+
 	select {
 	case <-godebug.Comm(ctx, scope, 88):
 		panic("impossible")
+
 	case <-c[0]:
 		godebug.Line(ctx, scope, 88)
 	case <-godebug.Comm(ctx, scope, 89):
@@ -189,6 +208,7 @@ func main() {
 		_ = r2
 	case <-godebug.Comm(ctx, scope, 94):
 		panic("impossible")
+
 	case _, _ = <-c[4]:
 		godebug.Line(ctx, scope, 94)
 	case <-godebug.Comm(ctx, scope, 95):
@@ -221,6 +241,7 @@ func main() {
 		_, _ = r2, ok
 	case <-godebug.Comm(ctx, scope, 103):
 		panic("impossible")
+
 	case <-foo():
 		godebug.Line(ctx, scope, 103)
 	case <-godebug.Comm(ctx, scope, 104):
@@ -241,6 +262,7 @@ func main() {
 		_ = r2
 	case <-godebug.Comm(ctx, scope, 109):
 		panic("impossible")
+
 	case _, _ = <-foo():
 		godebug.Line(ctx, scope, 109)
 	case <-godebug.Comm(ctx, scope, 110):
@@ -273,10 +295,13 @@ func main() {
 		_, _ = r2, ok
 	case <-godebug.EndSelect(ctx, scope):
 		panic("impossible")
+
 	}
 	godebug.Line(ctx, scope, 123)
+
 	c[0], c[1] = make(chan int), make(chan int)
 	godebug.Line(ctx, scope, 125)
+
 	go func() {
 		fn := func(ctx *godebug.Context) {
 			godebug.Line(ctx, scope, 126)
@@ -288,9 +313,11 @@ func main() {
 		}
 	}()
 	godebug.Select(ctx, scope, 129)
+
 	select {
 	case <-godebug.Comm(ctx, scope, 131):
 		panic("impossible")
+
 	case c[0] <- 0:
 		godebug.Line(ctx, scope, 131)
 	case <-godebug.Comm(ctx, scope, 132):
@@ -301,6 +328,7 @@ func main() {
 		fmt.Println("sent")
 	case <-godebug.Comm(ctx, scope, 135):
 		panic("impossible")
+
 	case foo() <- 0:
 		godebug.Line(ctx, scope, 135)
 	case <-godebug.Comm(ctx, scope, 136):
@@ -309,6 +337,7 @@ func main() {
 		godebug.Line(ctx, scope, 136)
 	case <-godebug.EndSelect(ctx, scope):
 		panic("impossible")
+
 	}
 }
 
