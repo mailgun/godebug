@@ -245,6 +245,43 @@ func doFallthrough() {
 		panic("fallthrough statement did not work")
 	}
 }
+func a() int {
+	var result1 int
+	ctx, _ok := godebug.EnterFunc(func() {
+		result1 = a()
+	})
+	if !_ok {
+		return result1
+	}
+	defer godebug.ExitFunc(ctx)
+	godebug.Line(ctx, regression_in_go_scope, 125)
+	return 0
+}
+func init() {
+	switchInit()
+}
+func switchInit() {
+	ctx, _ok := godebug.EnterFunc(switchInit)
+	if !_ok {
+		return
+	}
+	defer godebug.ExitFunc(ctx)
+	godebug.SetTraceGen(ctx)
+	{
+		godebug.Line(ctx, regression_in_go_scope, 135)
+		a := a()
+		scope := regression_in_go_scope.EnteringNewChildScope()
+		scope.Declare("a", &a)
+		switch {
+		default:
+			godebug.Line(ctx, scope, 136)
+			godebug.Line(ctx, scope, 137)
+			_ = a
+		}
+	}
+	godebug.Line(ctx, regression_in_go_scope, 139)
+	_ = "the variable a should be out of scope"
+}
 
 var regression_in_go_contents = `package main
 
@@ -355,7 +392,7 @@ func init() {
 	doFallthrough()
 }
 
-// fallthrough should work
+// Fallthrough should work.
 func doFallthrough() {
 	fellthrough := false
 	switch {
@@ -367,5 +404,23 @@ func doFallthrough() {
 	if !fellthrough {
 		panic("fallthrough statement did not work")
 	}
+}
+
+func a() int {
+	return 0
+}
+
+func init() {
+	switchInit()
+}
+
+// Don't repeat switch initialization, use correct scope inside switch.
+func switchInit() {
+	godebug.SetTrace()
+	switch a := a(); {
+	default:
+		_ = a
+	}
+	_ = "the variable a should be out of scope"
 }
 `

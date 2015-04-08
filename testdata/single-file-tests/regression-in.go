@@ -107,7 +107,7 @@ func init() {
 	doFallthrough()
 }
 
-// fallthrough should work
+// Fallthrough should work.
 func doFallthrough() {
 	fellthrough := false
 	switch {
@@ -119,4 +119,22 @@ func doFallthrough() {
 	if !fellthrough {
 		panic("fallthrough statement did not work")
 	}
+}
+
+func a() int {
+	return 0
+}
+
+func init() {
+	switchInit()
+}
+
+// Don't repeat switch initialization, use correct scope inside switch.
+func switchInit() {
+	godebug.SetTrace()
+	switch a := a(); {
+	default:
+		_ = a
+	}
+	_ = "the variable a should be out of scope"
 }

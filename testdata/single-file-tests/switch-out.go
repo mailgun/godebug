@@ -68,7 +68,7 @@ func main() {
 		b := 2
 		scope := scope.EnteringNewChildScope()
 		scope.Declare("b", &b)
-		switch b := 2; b == 6 {
+		switch b == 6 {
 		case godebug.Case(ctx, scope, 40):
 			fallthrough
 		case true:

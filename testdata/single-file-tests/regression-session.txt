@@ -1,3 +1,15 @@
+-> switch a := a(); {
+(godebug) next
+-> default:
+(godebug) next
+-> _ = a
+(godebug) a
+0
+(godebug) next
+-> _ = "the variable a should be out of scope"
+(godebug) a
+Command not recognized, sorry! You typed: "a"
+(godebug) continue
 hello
 test
 -> const n = 10

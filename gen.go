@@ -370,7 +370,7 @@ func newIdentsInRange(_range *ast.RangeStmt) (idents []*ast.Ident) {
 	return
 }
 
-func (v *visitor) wrapSwitch(_switch *ast.SwitchStmt, idents []*ast.Ident) (block *ast.BlockStmt) {
+func (v *visitor) wrapSwitch(_switch *ast.SwitchStmt, identList []*ast.Ident) (block *ast.BlockStmt) {
 	block = astPrintf(`
 		{
 			godebug.Line(ctx, %s, %s)
@@ -379,7 +379,8 @@ func (v *visitor) wrapSwitch(_switch *ast.SwitchStmt, idents []*ast.Ident) (bloc
 			_ = scope // placeholder
 			_ = scope // placeholder
 		}`, v.scopeVar, pos2lineString(_switch.Pos()), _switch.Init, v.scopeVar)[0].(*ast.BlockStmt)
-	block.List[3] = newDeclareCall(v.scopeVar, idents)
+	block.List[3] = newDeclareCall(idents.scope, identList)
+	_switch.Init = nil
 	block.List[4] = _switch
 	return block
 }
@@ -561,6 +562,8 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		if len(newIdents) > 0 {
 			block := v.wrapSwitch(i, newIdents)
 			v.stmtBuf = append(v.stmtBuf, block)
+			// wrapSwitch opened a new scope. Switch away from the file-level scope if we haven't already.
+			childVisitor.scopeVar = idents.scope
 			return childVisitor
 		}
 
