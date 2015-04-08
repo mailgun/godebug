@@ -301,3 +301,24 @@ transcript: |
     godebug run: heads up: "all" means "all except std". godebug can't step into the standard library yet.
 
     some-arg
+
+---
+desc: should be able to pass "..." to -instrument flag
+invocations:
+    - dir: /
+      cmd: godebug run -instrument=foo/... fooDDD.go
+creates:
+    - $TMP/fooDDD.go
+    - $TMP/src/foo/foo.go
+    - $TMP/src/foo/subfoo/subfoo.go
+
+transcript: |
+    -> foo.Foo()
+    (godebug) step
+    -> fmt.Println("foo")
+    (godebug) step
+    foo
+    -> subfoo.SubFoo()
+    (godebug) step
+    -> _ = "in subfoo"
+    (godebug) next

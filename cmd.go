@@ -16,6 +16,7 @@ import (
 
 	"bitbucket.org/JeremySchlatter/go-atexit"
 
+	"github.com/kisielk/gotool"
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
 )
 
@@ -272,7 +273,9 @@ func generateSourceFiles(conf *loader.Config, subcommand string) (tmpDirPath str
 				"\nDo you wish it could? Chime in at https://github.com/mailgun/godebug/issues/12",
 				subcommand)
 		default:
-			conf.Import(pkg)
+			for _, path := range gotool.ImportPaths([]string{pkg}) { // wildcard "..." expansion
+				conf.Import(path)
+			}
 		}
 	}
 

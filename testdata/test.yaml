@@ -150,3 +150,27 @@ transcript: |
     (godebug) continue
     foo
     PASS
+
+---
+desc: should be able to pass "..." to -instrument flag
+invocations:
+    - dir: /
+      cmd: godebug test -instrument=foo/... testpkg2
+    - dir: /gopath/src/testpkg2
+      cmd: godebug test -instrument foo/...
+creates:
+    - $TMP/src/testpkg2/test_test.go
+    - $TMP/src/foo/foo.go
+    - $TMP/src/foo/subfoo/subfoo.go
+
+transcript: |
+    -> foo.Foo()
+    (godebug) step
+    -> fmt.Println("foo")
+    (godebug) step
+    foo
+    -> subfoo.SubFoo()
+    (godebug) step
+    -> _ = "in subfoo"
+    (godebug) next
+    PASS
