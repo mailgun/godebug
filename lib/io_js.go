@@ -1,4 +1,4 @@
-// +build js
+// +build never
 
 // i/o for javascript
 
@@ -17,26 +17,32 @@ var (
 // Variables used just in this file
 var (
 	document  = js.Global.Get("document")
-	outputDiv = document.Call("getElementById", "#output")
+	outputDiv = js.Global.Get("document").Call("getElementById", "#output")
 )
 
-type jsInput string
+type jsInput struct {
+	s string
+}
 
 func (s *jsInput) Scan() bool {
+
 	// scan stuff
 	return true
 }
 
 func (s *jsInput) Text() string {
-	return string(*s)
+	return s.s
 }
 
 type jsOutput struct{}
 
 func (jsOutput) Write(p []byte) (n int, err error) {
-	span := document.Call("createElement", "span")
-	span.Set("className", "stdout")
-	span.Set("innerHTML", string(p))
-	outputDiv.Call("appendChild", span)
-	return len(p), nil
+	js.Global.Get("console").Call("log", string(p))
+	/*
+		span := document.Call("createElement", "span")
+		span.Set("className", "stdout")
+		span.Set("innerHTML", string(p))
+		outputDiv.Call("appendChild", span)
+		return len(p), nil
+	*/
 }

@@ -109,17 +109,34 @@ func TestGoldenFiles(t *testing.T) {
 	wg.Wait()
 }
 
+var gopherjsAvailable = false
+
+func init() {
+	if _, err := exec.LookPath("gopherjs"); err == nil {
+		gopherjsAvailable = true
+	} else {
+		fmt.Println("gopherjs is not in PATH. Skipping gopherjs tests.")
+	}
+}
+
 func oneTest(t *testing.T, godebug, test, dirname string, goldenSessions []string) {
 	compareGolden(t, godebug, test)
 	if len(goldenSessions) == 0 {
-		runGolden(t, test, nil)
+		runGolden(t, test, "go", nil)
+		if gopherjsAvailable {
+			runGolden(t, test, "gopherjs", nil)
+		}
 	}
 	var wg sync.WaitGroup
 	wg.Add(len(goldenSessions))
 	for _, filename := range goldenSessions {
 		go func(filename string) {
 			defer wg.Done()
-			runGolden(t, test, parseSession(t, filepath.Join(dirname, filename)))
+			s := parseSession(t, filepath.Join(dirname, filename))
+			runGolden(t, test, "go", s)
+			if gopherjsAvailable {
+				runGolden(t, test, "gopherjs", s)
+			}
 		}(filename)
 	}
 	wg.Wait()
@@ -175,25 +192,25 @@ type session struct {
 	cmd []string
 }
 
-func runGolden(t *testing.T, test string, s *session) {
+func runGolden(t *testing.T, test, tool string, s *session) {
 	var buf bytes.Buffer
-	cmd := exec.Command("go", "run", goldenOutput(test))
+	cmd := exec.Command(tool, "run", goldenOutput(test))
 	if s != nil {
 		cmd.Stdin = bytes.NewReader(s.input)
 	}
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 	if err := cmd.Run(); err != nil {
-		t.Errorf("Golden file %s-out.go failed to run: %v\n%s", test, err, buf.Bytes())
+		t.Errorf("Golden file %s-out.go failed to run under '%s run': %v\n%s", test, tool, err, buf.Bytes())
 	}
 	if s != nil {
-		checkOutput(t, s, buf.Bytes())
+		checkOutput(t, s, tool, buf.Bytes())
 	}
 }
 
-func checkOutput(t *testing.T, want *session, output []byte) {
+func checkOutput(t *testing.T, want *session, tool string, output []byte) {
 	testName := filepath.Base(want.filename)
-	fmt.Println("checking", testName)
+	fmt.Printf("checking %s (%s)\n", testName, tool)
 	got := interleaveCommands(want.input, output)
 	if bytes.Equal(got, want.fullSession) {
 		return

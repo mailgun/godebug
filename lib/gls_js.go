@@ -51,7 +51,7 @@ func (c jsContext) SetValues(contextCall func(), keyVal ...interface{}) {
 
 	values := make(map[interface{}]interface{})
 	for i := 0; i < len(keyVal); i += 2 {
-		values[keyVal[i]] = values[keyVal[i+1]]
+		values[keyVal[i]] = keyVal[i+1]
 	}
 	c.setValues(values, contextCall)
 }
