@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"go/ast"
 	"go/build"
 	"io"
 	"io/ioutil"
@@ -250,7 +251,6 @@ func generateSourceFiles(conf *loader.Config, subcommand string) (tmpDirPath str
 		pkgs = strings.Split(*instrument, ",")
 	}
 	all := false
-	var stdLib map[string]bool
 	for _, pkg := range pkgs {
 		// check for the special reserved package names: "main", "all", and "std"
 		// see 'go help packages'
@@ -264,7 +264,6 @@ func generateSourceFiles(conf *loader.Config, subcommand string) (tmpDirPath str
 		case "all":
 			if !all {
 				all = true
-				stdLib = getStdLibPkgs()
 				fmt.Println(`godebug run: heads up: "all" means "all except std". godebug can't step into the standard library yet.` + "\n")
 			}
 		case "std":
@@ -284,9 +283,13 @@ func generateSourceFiles(conf *loader.Config, subcommand string) (tmpDirPath str
 	exitIfErr(err)
 
 	// If we're in "all" mode, mark all but the standard library packages and godebug itself for instrumenting.
+	stdLib := getStdLibPkgs()
 	if all {
 		markAlmostAllPackages(prog, stdLib)
 	}
+
+	// Warn the user if they have breakpoints set in files that we are not instrumenting.
+	checkForUnusedBreakpoints(subcommand, prog, stdLib)
 
 	// Generate debugging-enabled source files.
 	wd := getwd()
@@ -301,6 +304,31 @@ func generateSourceFiles(conf *loader.Config, subcommand string) (tmpDirPath str
 		return createFileHook(filename, tmpDir)
 	})
 	return tmpDir
+}
+
+func checkForUnusedBreakpoints(subcommand string, prog *loader.Program, stdLib map[string]bool) {
+	initialPkgs := make(map[*loader.PackageInfo]bool)
+	for _, pkg := range prog.InitialPackages() {
+		initialPkgs[pkg] = true
+	}
+	// For now we'll look at all of the non-stdlib-source files.
+	// As an optimization, we could just look at files that have been changed.
+	idents.godebug = "godebug" // a hack to make isSetTraceCall work. Delete when breakpoints become comments.
+	for _, pkg := range prog.AllPackages {
+		if stdLib[pkg.String()] || initialPkgs[pkg] {
+			continue
+		}
+		for _, f := range pkg.Files {
+			ast.Inspect(f, func(node ast.Node) bool {
+				if isSetTraceCall(node) {
+					pos := prog.Fset.Position(node.Pos())
+					fmt.Printf("godebug %s: Ignoring breakpoint at %s:%d because package %q has not been flagged for instrumentation. See 'godebug help %s'.\n\n",
+						subcommand, filepath.Join(pkg.String(), filepath.Base(pos.Filename)), pos.Line, pkg.Pkg.Name(), subcommand)
+				}
+				return true
+			})
+		}
+	}
 }
 
 func markAlmostAllPackages(prog *loader.Program, stdLib map[string]bool) {

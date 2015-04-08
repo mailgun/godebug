@@ -174,3 +174,23 @@ transcript: |
     -> _ = "in subfoo"
     (godebug) next
     PASS
+
+---
+desc: godebug should warn the user if an uninstrumented file contains a breakpoint
+invocations:
+    - dir: /
+      cmd: godebug test testpkg2
+    - dir: /gopath/src/testpkg2
+      cmd: godebug test
+creates:
+    - $TMP/src/testpkg2/test_test.go
+
+transcript: |
+    godebug test: Ignoring breakpoint at foo/subfoo/subfoo.go:10 because package "subfoo" has not been flagged for instrumentation. See 'godebug help test'.
+
+    -> foo.Foo()
+    (godebug) step
+    foo
+    -> subfoo.SubFoo()
+    (godebug) step
+    PASS

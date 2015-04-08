@@ -322,3 +322,16 @@ transcript: |
     (godebug) step
     -> _ = "in subfoo"
     (godebug) next
+
+---
+desc: godebug should warn the user if an unistrumented file contains a breakpoint
+invocations:
+    - dir: /
+      cmd: godebug run breakpointInDependency.go
+creates:
+    - $TMP/breakpointInDependency.go
+
+transcript: |
+    godebug run: Ignoring breakpoint at testpkg/pkg.go:6 because package "testpkg" has not been flagged for instrumentation. See 'godebug help run'.
+
+    finished running
