@@ -48,7 +48,7 @@ Command not recognized, sorry! You typed: "hi"
 (godebug) n
 -> fmt.Println(hi)
 (godebug) hi
-hello
+"hello"
 (godebug) n
 hello
 -> c[0] <- 0
@@ -69,12 +69,12 @@ hello
 (godebug) n
 -> fmt.Println(hi)
 (godebug) hi
-hello
+"hello"
 (godebug) n
 hello
 -> _ = hi
 (godebug) hi
-hi
+"hi"
 (godebug) n
 -> select {
 (godebug) n
@@ -92,7 +92,7 @@ Command not recognized, sorry! You typed: "hi"
 (godebug) n
 -> fmt.Println(hi)
 (godebug) hi
-hello
+"hello"
 (godebug) n
 hello
 -> c[9] <- 1

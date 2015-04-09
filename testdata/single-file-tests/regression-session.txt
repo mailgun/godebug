@@ -30,18 +30,18 @@ test
 (godebug) step
 -> if true {
 (godebug) print name2
-
+""
 (godebug) next
 -> name2 = "foo"
 (godebug) next
 -> return name2
 (godebug) print name2
-foo
+"foo"
 (godebug) next
 -> T{}.name3()
 (godebug) step
 -> if true {
 (godebug) print name3
-{}
+main.T{}
 (godebug) continue
 Hello

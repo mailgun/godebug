@@ -337,14 +337,14 @@ func waitForInput(scope *Scope, line int) {
 			continue
 		}
 		if v, ok := scope.getIdent(strings.TrimSpace(s)); ok {
-			fmt.Println(v)
+			fmt.Printf("%#v\n", v)
 			continue
 		}
 		var cmd, name string
 		n, _ := fmt.Sscan(s, &cmd, &name)
 		if n == 2 && (cmd == "p" || cmd == "print") {
 			if v, ok := scope.getIdent(strings.TrimSpace(name)); ok {
-				fmt.Println(v)
+				fmt.Printf("%#v\n", v)
 				continue
 			}
 		}

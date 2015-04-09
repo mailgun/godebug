@@ -211,11 +211,11 @@ creates:
 transcript: |
     -> flag.Parse()
     (godebug) print foo
-    foo's default value
+    "foo's default value"
     (godebug) next
     -> _ = foo
     (godebug) print foo
-    hello
+    "hello"
     (godebug) continue
 
 ---
