@@ -1,48 +1,28 @@
-// +build never
+// +build js
 
 // i/o for javascript
+//
+// When running on node.js, we have access to stdin and stdout as normal,
+// so nothing needs to change. When we run in a browser, we do i/o through
+// [jq-console](https://replit.github.io/jq-console/).
 
 package godebug
 
-import (
-	"github.com/gopherjs/gopherjs/js"
-)
+import "github.com/gopherjs/gopherjs/js"
 
-// Variables used by debug.go
-var (
-	input   = &jsInput{}
-	outputW jsOutput
-)
+// OnReady lets us know that we are running in a browser gives us access to an
+// instance of jqconsole.
+func OnReady(jqconsole *js.Object) {
+	js.Global.Set("goPrintToConsole", js.InternalObject(func(b []byte) {
+		jqconsole.Call("Write", string(b), "jqconsole-output")
+	}))
 
-// Variables used just in this file
-var (
-	document  = js.Global.Get("document")
-	outputDiv = js.Global.Get("document").Call("getElementById", "#output")
-)
-
-type jsInput struct {
-	s string
-}
-
-func (s *jsInput) Scan() bool {
-
-	// scan stuff
-	return true
-}
-
-func (s *jsInput) Text() string {
-	return s.s
-}
-
-type jsOutput struct{}
-
-func (jsOutput) Write(p []byte) (n int, err error) {
-	js.Global.Get("console").Call("log", string(p))
-	/*
-		span := document.Call("createElement", "span")
-		span.Set("className", "stdout")
-		span.Set("innerHTML", string(p))
-		outputDiv.Call("appendChild", span)
-		return len(p), nil
-	*/
+	promptUser = func() (response string, ok bool) {
+		s := make(chan string)
+		jqconsole.Call("Prompt", true, js.MakeFunc(func(this *js.Object, args []*js.Object) interface{} {
+			s <- args[0].String()
+			return nil
+		}))
+		return <-s, true
+	}
 }

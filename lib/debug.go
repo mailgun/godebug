@@ -1,7 +1,9 @@
 package godebug
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -213,7 +215,7 @@ func Comm(c *Context, s *Scope, line int) chan struct{} {
 // It returns a nil channel to read from as the last case of that select statement.
 func EndSelect(c *Context, s *Scope) chan struct{} {
 	if shouldPause(c) {
-		outputln("< All channel expressions evaluated. Choosing case to proceed. >")
+		fmt.Println("< All channel expressions evaluated. Choosing case to proceed. >")
 	}
 	return nil
 }
@@ -227,7 +229,7 @@ func Select(c *Context, s *Scope, line int) {
 	// Assumes the debugger hasn't switched goroutines. Valid assumption now,
 	// will probably change in the future.
 	if currentState != run {
-		outputln("< Evaluating channel expressions and RHS of send expressions. >")
+		fmt.Println("< Evaluating channel expressions and RHS of send expressions. >")
 	}
 }
 
@@ -247,7 +249,7 @@ func lineWithPrefix(c *Context, s *Scope, line int, prefix string) {
 	}
 	debuggerDepth = currentDepth
 	justLeft = false
-	output("-> ", prefix, strings.TrimSpace(s.fileText[line-1]), "\n") // token.Position.Line starts at 1.
+	fmt.Println("-> " + prefix + strings.TrimSpace(s.fileText[line-1])) // token.Position.Line starts at 1.
 	waitForInput(s, line)
 }
 
@@ -309,16 +311,15 @@ Any input that is not one of the above commands is interpreted as a variable nam
 
 func waitForInput(scope *Scope, line int) {
 	for {
-		output("(godebug) ")
-		if !input.Scan() {
-			outputln("quitting session")
+		s, ok := promptUser()
+		if !ok {
+			fmt.Println("quitting session")
 			currentState = run
 			return
 		}
-		s := input.Text()
 		switch s {
 		case "?", "h", "help":
-			outputln(help)
+			fmt.Println(help)
 			continue
 		case "n", "next":
 			currentState = next
@@ -334,18 +335,18 @@ func waitForInput(scope *Scope, line int) {
 			continue
 		}
 		if v, ok := scope.getIdent(strings.TrimSpace(s)); ok {
-			outputln(fmt.Sprintf("%#v", v))
+			fmt.Printf("%#v\n", v)
 			continue
 		}
 		var cmd, name string
 		n, _ := fmt.Sscan(s, &cmd, &name)
 		if n == 2 && (cmd == "p" || cmd == "print") {
 			if v, ok := scope.getIdent(strings.TrimSpace(name)); ok {
-				outputln(fmt.Sprintf("%#v", v))
+				fmt.Printf("%#v\n", v)
 				continue
 			}
 		}
-		outputf("Command not recognized, sorry! You typed: %q\n", s)
+		fmt.Printf("Command not recognized, sorry! You typed: %q\n", s)
 	}
 }
 
@@ -355,7 +356,7 @@ func dereference(i interface{}) interface{} {
 
 func printContext(lines []string, line, contextCount int) {
 	line-- // token.Position.Line starts at 1.
-	outputln()
+	fmt.Println()
 	for i := line - contextCount; i <= line+contextCount; i++ {
 		prefix := "    "
 		if i == line {
@@ -363,20 +364,19 @@ func printContext(lines []string, line, contextCount int) {
 		}
 		if i >= 0 && i < len(lines) {
 			line := strings.TrimRightFunc(prefix+lines[i], unicode.IsSpace)
-			outputln(line)
+			fmt.Println(line)
 		}
 	}
-	outputln()
+	fmt.Println()
 }
 
-func output(a ...interface{}) (n int, err error) {
-	return fmt.Fprint(outputW, a...)
-}
+var input = bufio.NewScanner(os.Stdin)
 
-func outputf(format string, a ...interface{}) (n int, err error) {
-	return fmt.Fprintf(outputW, format, a...)
-}
-
-func outputln(a ...interface{}) (n int, err error) {
-	return fmt.Fprintln(outputW, a...)
+// This gets overridden when running in a browser.
+var promptUser = func() (response string, ok bool) {
+	fmt.Print("(godebug) ")
+	if !input.Scan() {
+		return "", false
+	}
+	return input.Text(), true
 }
