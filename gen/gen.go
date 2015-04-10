@@ -1,4 +1,4 @@
-package main
+package gen
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"go/printer"
 	"go/token"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -31,7 +30,7 @@ var (
 	pkg    *types.Package
 )
 
-func generate(prog *loader.Program, writerFor func(importPath, filename string) io.WriteCloser) {
+func Generate(prog *loader.Program, getFileBytes func(string) ([]byte, error), writerFor func(importPath, filename string) io.WriteCloser) {
 	for _, pkgInfo := range prog.InitialPackages() {
 		defs = pkgInfo.Defs
 		_types = pkgInfo.Types
@@ -42,7 +41,7 @@ func generate(prog *loader.Program, writerFor func(importPath, filename string) 
 			if strings.HasSuffix(fname, "/C") {
 				continue
 			}
-			b, err := ioutil.ReadFile(fname)
+			b, err := getFileBytes(fname)
 			if err != nil {
 				fmt.Fprint(os.Stderr, "Error reading file:", err)
 				os.Exit(1)

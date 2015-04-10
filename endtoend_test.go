@@ -302,3 +302,7 @@ func removeSessionComment(lines [][]byte) [][]byte {
 	}
 	return nil
 }
+
+func normalizeCRLF(b []byte) []byte {
+	return bytes.Replace(b, []byte("\r\n"), []byte("\n"), -1)
+}

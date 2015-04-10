@@ -16,9 +16,11 @@ import (
 	"strings"
 
 	"bitbucket.org/JeremySchlatter/go-atexit"
-
 	"github.com/kisielk/gotool"
+
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
+
+	"github.com/mailgun/godebug/gen"
 )
 
 var (
@@ -293,7 +295,7 @@ func generateSourceFiles(conf *loader.Config, subcommand string) (tmpDirPath str
 
 	// Generate debugging-enabled source files.
 	wd := getwd()
-	generate(prog, func(importPath, filename string) io.WriteCloser {
+	gen.Generate(prog, ioutil.ReadFile, func(importPath, filename string) io.WriteCloser {
 		if importPath == "main" {
 			filename = filepath.Join(tmpDir, filepath.Base(filename))
 		} else {
@@ -313,7 +315,6 @@ func checkForUnusedBreakpoints(subcommand string, prog *loader.Program, stdLib m
 	}
 	// For now we'll look at all of the non-stdlib-source files.
 	// As an optimization, we could just look at files that have been changed.
-	idents.godebug = "godebug" // a hack to make isSetTraceCall work. Delete when breakpoints become comments.
 	for _, pkg := range prog.AllPackages {
 		if stdLib[pkg.String()] || initialPkgs[pkg] {
 			continue
@@ -329,6 +330,17 @@ func checkForUnusedBreakpoints(subcommand string, prog *loader.Program, stdLib m
 			})
 		}
 	}
+}
+
+// Copied from gen/gen.go.
+func isSetTraceCall(node ast.Node) (b bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			b = false
+		}
+	}()
+	sel := node.(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
+	return sel.X.(*ast.Ident).Name == "godebug" && sel.Sel.Name == "SetTrace"
 }
 
 func markAlmostAllPackages(prog *loader.Program, stdLib map[string]bool) {
@@ -470,7 +482,7 @@ func doOutput(args []string) {
 		fmt.Fprintf(os.Stderr, "Error loading packages: %v\n\n", err)
 		usage()
 	}
-	generate(prog, func(importPath, filename string) io.WriteCloser {
+	gen.Generate(prog, ioutil.ReadFile, func(importPath, filename string) io.WriteCloser {
 		if *w {
 			return createFileHook(filename, "")
 		}
