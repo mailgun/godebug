@@ -30,6 +30,10 @@ var (
 	pkg    *types.Package
 )
 
+type Config struct {
+	loader.Config
+}
+
 func Generate(prog *loader.Program, getFileBytes func(string) ([]byte, error), writerFor func(importPath, filename string) io.WriteCloser) {
 	for _, pkgInfo := range prog.InitialPackages() {
 		defs = pkgInfo.Defs
@@ -46,8 +50,9 @@ func Generate(prog *loader.Program, getFileBytes func(string) ([]byte, error), w
 				fmt.Fprint(os.Stderr, "Error reading file:", err)
 				os.Exit(1)
 			}
-			quotedContents := rawQuote(string(normalizeCRLF(b)))
-			ast1, fs1 := parseCgoFile(fname)
+			b = normalizeCRLF(b)
+			quotedContents := rawQuote(string(b))
+			ast1, fs1 := parseCgoFile(fname, b)
 			if ast1 != nil {
 				f = ast1
 				fs = fs1
@@ -927,9 +932,9 @@ func rewriteRecoverCall(parent, _recover ast.Node) {
 	}
 }
 
-func parseCgoFile(filename string) (*ast.File, *token.FileSet) {
+func parseCgoFile(filename string, bytes []byte) (*ast.File, *token.FileSet) {
 	fs := token.NewFileSet()
-	ast1, err := parser.ParseFile(fs, filename, nil, parser.ParseComments)
+	ast1, err := parser.ParseFile(fs, filename, bytes, parser.ParseComments)
 	if err != nil {
 		fmt.Println("Error parsing file:", err)
 		os.Exit(1)
