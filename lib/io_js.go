@@ -2,27 +2,54 @@
 
 // i/o for javascript
 //
-// When running on node.js, we have access to stdin and stdout as normal,
-// so nothing needs to change. When we run in a browser, we do i/o through
-// [jq-console](https://replit.github.io/jq-console/).
+// godebug can run on node.js with no i/o changes.
+//
+// If we're embedded in a web page or web worker, whoever embeds us needs to define up a couple functions:
+//
+//     godebugOutput
+//         Called when godebug wants to write something to stdout.
+//         Has one parameter:
+//             - String: The data to display.
+//
+//     godebugPrompt
+//         Called by godebug whenever it is ready for user input. Takes no parameters. Should display a prompt.
+//         Does not need to block until input is ready. When input is ready, call the global function "godebugInput",
+//         which is documented below.
+//
+// If godebug starts running in an environment that has "godebugPrompt" defined, it will create the following function
+// in the global scope:
+//
+//     godebugInput
+//         Should be called when the user responds to a prompt.
+//         Takes one parameter:
+//             - String: Text input from the user.
 
 package godebug
 
 import "github.com/gopherjs/gopherjs/js"
 
-// OnReady lets us know that we are running in a browser gives us access to an
-// instance of jqconsole.
-func OnReady(jqconsole *js.Object) {
-	js.Global.Set("goPrintToConsole", js.InternalObject(func(b []byte) {
-		jqconsole.Call("Write", string(b), "jqconsole-output")
+func init() {
+	prompt := js.Global.Get("godebugPrompt")
+	if !prompt.Bool() {
+		return
+	}
+
+	// Expose an input function to javascript for responses to prompts.
+	input := make(chan string)
+	js.Global.Set("godebugInput", js.MakeFunc(func(this *js.Object, args []*js.Object) interface{} {
+		input <- args[0].String()
+		return nil
 	}))
 
+	// Hook up gopherJS's output function.
+	js.Global.Set("goPrintToConsole", js.InternalObject(func(b []byte) {
+		js.Global.Call("godebugOutput", string(b))
+	}))
+
+	// Override our internal prompt function.
 	promptUser = func() (response string, ok bool) {
-		s := make(chan string)
-		jqconsole.Call("Prompt", true, js.MakeFunc(func(this *js.Object, args []*js.Object) interface{} {
-			s <- args[0].String()
-			return nil
-		}))
-		return <-s, true
+		prompt.Invoke()
+		response = <-input
+		return response, true
 	}
 }
