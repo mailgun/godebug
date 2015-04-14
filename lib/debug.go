@@ -320,7 +320,7 @@ func waitForInput(scope *Scope, line int) {
 		}
 		s := input.Text()
 		switch s {
-		case "h", "help":
+		case "?", "h", "help":
 			fmt.Println(help)
 			continue
 		case "n", "next":

@@ -27,5 +27,18 @@ Commands:
 Commands may be given by their full name or by their parenthesized abbreviation.
 Any input that is not one of the above commands is interpreted as a variable name.
 
+(godebug) ?
+
+Commands:
+    (h) help: Print this help.
+    (n) next: Run the next line.
+    (s) step: Run for one step.
+    (c) continue: Run until the next breakpoint.
+    (l) list: Show the current line in context of the code around it.
+    (p) print <var>: Print a variable.
+
+Commands may be given by their full name or by their parenthesized abbreviation.
+Any input that is not one of the above commands is interpreted as a variable name.
+
 (godebug) continue
 What's going on? x == 16
