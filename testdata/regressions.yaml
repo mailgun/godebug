@@ -1,0 +1,16 @@
+---
+desc: use correct scope when first declaration in a function happens in a loop
+invocations:
+    - dir: /
+      cmd: godebug run regressions/loop-decl.go
+creates:
+    - $TMP/loop-decl.go
+transcript: |
+    -> _ = i
+    (godebug) print i
+    0
+    (godebug) continue
+    -> _ = s
+    (godebug) print s
+    "hello"
+    (godebug) continue

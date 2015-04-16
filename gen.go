@@ -616,6 +616,8 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			v.stmtBuf = append(v.stmtBuf, block)
 			childVisitor.context = loop
 			childVisitor.loopState = loopState{newIdents: newIdents}
+			// wrapLoop opened a new scope. Switch away from the file-level scope if we haven't already.
+			childVisitor.scopeVar = idents.scope
 			return childVisitor
 		}
 	case *ast.RangeStmt:
@@ -625,6 +627,8 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 			v.stmtBuf = append(v.stmtBuf, block)
 			childVisitor.context = loop
 			childVisitor.loopState = loopState{newIdents: newIdents}
+			// wrapLoop opened a new scope. Switch away from the file-level scope if we haven't already.
+			childVisitor.scopeVar = idents.scope
 			return childVisitor
 		}
 	}
