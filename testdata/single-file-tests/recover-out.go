@@ -9,138 +9,86 @@ import (
 var recover_in_go_scope = godebug.EnteringNewScope(recover_in_go_contents)
 
 func r1() {
-	quit := make(chan struct {
+	_r := make(chan chan interface {
 	})
-	_godebug_recover_chan_ := make(chan chan interface {
+	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
+		godebug.Line(ctx, recover_in_go_scope, 10)
+		<-(<-_r)
 	})
-	rr := make(chan interface {
-	})
-	godebug.Go(func() {
-		defer close(quit)
-		fn := func(ctx *godebug.Context) {
-			godebug.Line(ctx, recover_in_go_scope, 10)
-			<-(<-_godebug_recover_chan_)
-		}
-		if ctx, ok := godebug.EnterFuncLit(fn); ok {
-			defer godebug.ExitFunc(ctx)
-			fn(ctx)
-		}
-	})
-	for {
-		select {
-		case <-quit:
-			return
-		case _godebug_recover_chan_ <- rr:
-			rr <- recover()
-		}
+	for rr := range recovers {
+		rr <- recover()
+	}
+	if v, ok := <-panicChan; ok {
+		panic(v)
 	}
 }
 
 func r2() {
-	quit := make(chan struct {
+	_r := make(chan chan interface {
 	})
-	_godebug_recover_chan_ := make(chan chan interface {
-	})
-	rr := make(chan interface {
-	})
-	godebug.Go(func() {
-		defer close(quit)
-		fn := func(ctx *godebug.Context) {
-			godebug.Line(ctx, recover_in_go_scope, 14)
-			if r := <-(<-_godebug_recover_chan_); r == nil {
-				scope := recover_in_go_scope.EnteringNewChildScope()
-				scope.Declare("r", &r)
-				godebug.Line(ctx, scope, 15)
-				log.Fatal("r2: Expected panic, but it didn't happen.")
-			}
-			godebug.Line(ctx, recover_in_go_scope, 17)
-			if r := <-(<-_godebug_recover_chan_); r != nil {
-				scope := recover_in_go_scope.EnteringNewChildScope()
-				scope.Declare("r", &r)
-				godebug.Line(ctx, scope, 18)
-				log.Fatal("r2: Second recover should return nil.")
-			}
+	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
+		godebug.Line(ctx, recover_in_go_scope, 14)
+		if r := <-(<-_r); r == nil {
+			scope := recover_in_go_scope.EnteringNewChildScope()
+			scope.Declare("r", &r)
+			godebug.Line(ctx, scope, 15)
+			log.Fatal("r2: Expected panic, but it didn't happen.")
 		}
-		if ctx, ok := godebug.EnterFuncLit(fn); ok {
-			defer godebug.ExitFunc(ctx)
-			fn(ctx)
+		godebug.Line(ctx, recover_in_go_scope, 17)
+		if r := <-(<-_r); r != nil {
+			scope := recover_in_go_scope.EnteringNewChildScope()
+			scope.Declare("r", &r)
+			godebug.Line(ctx, scope, 18)
+			log.Fatal("r2: Second recover should return nil.")
 		}
 	})
-	for {
-		select {
-		case <-quit:
-			return
-		case _godebug_recover_chan_ <- rr:
-			rr <- recover()
-		}
+	for rr := range recovers {
+		rr <- recover()
+	}
+	if v, ok := <-panicChan; ok {
+		panic(v)
 	}
 }
 
 var r3 = func() {
-	quit := make(chan struct {
+	_r := make(chan chan interface {
 	})
-	_godebug_recover_chan_ := make(chan chan interface {
+	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
+		godebug.Line(ctx, recover_in_go_scope, 23)
+		<-(<-_r)
 	})
-	rr := make(chan interface {
-	})
-	godebug.Go(func() {
-		defer close(quit)
-		fn := func(ctx *godebug.Context) {
-			godebug.Line(ctx, recover_in_go_scope, 23)
-			<-(<-_godebug_recover_chan_)
-		}
-		if ctx, ok := godebug.EnterFuncLit(fn); ok {
-			defer godebug.ExitFunc(ctx)
-			fn(ctx)
-		}
-	})
-	for {
-		select {
-		case <-quit:
-			return
-		case _godebug_recover_chan_ <- rr:
-			rr <- recover()
-		}
+	for rr := range recovers {
+		rr <- recover()
+	}
+	if v, ok := <-panicChan; ok {
+		panic(v)
 	}
 }
 
 var r4 = func() {
-	quit := make(chan struct {
+	_r := make(chan chan interface {
 	})
-	_godebug_recover_chan_ := make(chan chan interface {
-	})
-	rr := make(chan interface {
-	})
-	godebug.Go(func() {
-		defer close(quit)
-		fn := func(ctx *godebug.Context) {
-			godebug.Line(ctx, recover_in_go_scope, 27)
-			if r := <-(<-_godebug_recover_chan_); r == nil {
-				scope := recover_in_go_scope.EnteringNewChildScope()
-				scope.Declare("r", &r)
-				godebug.Line(ctx, scope, 28)
-				log.Fatal("r4: Expected panic, but it didn't happen.")
-			}
-			godebug.Line(ctx, recover_in_go_scope, 30)
-			if r := <-(<-_godebug_recover_chan_); r != nil {
-				scope := recover_in_go_scope.EnteringNewChildScope()
-				scope.Declare("r", &r)
-				godebug.Line(ctx, scope, 31)
-				log.Fatal("r4: Second recover should return nil.")
-			}
+	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
+		godebug.Line(ctx, recover_in_go_scope, 27)
+		if r := <-(<-_r); r == nil {
+			scope := recover_in_go_scope.EnteringNewChildScope()
+			scope.Declare("r", &r)
+			godebug.Line(ctx, scope, 28)
+			log.Fatal("r4: Expected panic, but it didn't happen.")
 		}
-		if ctx, ok := godebug.EnterFuncLit(fn); ok {
-			defer godebug.ExitFunc(ctx)
-			fn(ctx)
+		godebug.Line(ctx, recover_in_go_scope, 30)
+		if r := <-(<-_r); r != nil {
+			scope := recover_in_go_scope.EnteringNewChildScope()
+			scope.Declare("r", &r)
+			godebug.Line(ctx, scope, 31)
+			log.Fatal("r4: Second recover should return nil.")
 		}
 	})
-	for {
-		select {
-		case <-quit:
-			return
-		case _godebug_recover_chan_ <- rr:
-			rr <- recover()
-		}
+	for rr := range recovers {
+		rr <- recover()
+	}
+	if v, ok := <-panicChan; ok {
+		panic(v)
 	}
 }
 
@@ -173,37 +121,24 @@ func doNestedRecover(recoverer func()) {
 	scope.Declare("recoverer", &recoverer)
 	godebug.Line(ctx, scope, 41)
 	defer func() {
-		quit := make(chan struct {
+		_r := make(chan chan interface {
 		})
-		_godebug_recover_chan_ := make(chan chan interface {
-		})
-		rr := make(chan interface {
-		})
-		godebug.Go(func() {
-			defer close(quit)
-			fn := func(ctx *godebug.Context) {
-				godebug.Line(ctx, scope, 43)
-				recoverer()
-				godebug.Line(ctx, scope, 44)
-				if r := <-(<-_godebug_recover_chan_); r == nil {
-					scope := scope.EnteringNewChildScope()
-					scope.Declare("r", &r)
-					godebug.Line(ctx, scope, 45)
-					log.Fatal("doNestedRecover: Expected to still be panicking, but we aren't.")
-				}
-			}
-			if ctx, ok := godebug.EnterFuncLit(fn); ok {
-				defer godebug.ExitFunc(ctx)
-				fn(ctx)
+		recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
+			godebug.Line(ctx, scope, 43)
+			recoverer()
+			godebug.Line(ctx, scope, 44)
+			if r := <-(<-_r); r == nil {
+				scope := scope.EnteringNewChildScope()
+				scope.Declare("r", &r)
+				godebug.Line(ctx, scope, 45)
+				log.Fatal("doNestedRecover: Expected to still be panicking, but we aren't.")
 			}
 		})
-		for {
-			select {
-			case <-quit:
-				return
-			case _godebug_recover_chan_ <- rr:
-				rr <- recover()
-			}
+		for rr := range recovers {
+			rr <- recover()
+		}
+		if v, ok := <-panicChan; ok {
+			panic(v)
 		}
 	}()
 	defer godebug.Defer(ctx, scope, 41)
@@ -229,6 +164,78 @@ func main() {
 	doNestedRecover(r1)
 	godebug.Line(ctx, recover_in_go_scope, 58)
 	doNestedRecover(r3)
+	godebug.Line(ctx, recover_in_go_scope, 60)
+
+	recovererWithParams(2, "foo")
+	godebug.Line(ctx, recover_in_go_scope, 62)
+
+	doNestedPanic()
+}
+
+func recovererWithParams(i int, s string) bool {
+	var result1 bool
+	_r := make(chan chan interface {
+	})
+	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
+		result1 = func() bool {
+			scope := recover_in_go_scope.EnteringNewChildScope()
+			scope.Declare("i", &i, "s", &s)
+			godebug.Line(ctx, scope, 66)
+			<-(<-_r)
+			godebug.Line(ctx, scope, 67)
+			return true
+		}()
+	})
+	for rr := range recovers {
+		rr <- recover()
+	}
+	if v, ok := <-panicChan; ok {
+		panic(v)
+	}
+	return result1
+}
+
+func doNestedPanic() {
+	ctx, ok := godebug.EnterFunc(doNestedPanic)
+	if !ok {
+		return
+	}
+	defer godebug.ExitFunc(ctx)
+	godebug.Line(ctx, recover_in_go_scope, 71)
+	defer func() {
+		_r := make(chan chan interface {
+		})
+		recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
+			godebug.Line(ctx, recover_in_go_scope, 72)
+			<-(<-_r)
+		})
+		for rr := range recovers {
+			rr <- recover()
+		}
+		if v, ok := <-panicChan; ok {
+			panic(v)
+		}
+	}()
+	defer godebug.Defer(ctx, recover_in_go_scope, 71)
+	godebug.Line(ctx, recover_in_go_scope, 74)
+	recoverThenPanic()
+}
+
+func recoverThenPanic() {
+	_r := make(chan chan interface {
+	})
+	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
+		godebug.Line(ctx, recover_in_go_scope, 78)
+		<-(<-_r)
+		godebug.Line(ctx, recover_in_go_scope, 79)
+		panic("panic")
+	})
+	for rr := range recovers {
+		rr <- recover()
+	}
+	if v, ok := <-panicChan; ok {
+		panic(v)
+	}
 }
 
 var recover_in_go_contents = `package main
@@ -289,5 +296,26 @@ func main() {
 	doPanic(r4)
 	doNestedRecover(r1)
 	doNestedRecover(r3)
+
+	recovererWithParams(2, "foo")
+
+	doNestedPanic()
+}
+
+func recovererWithParams(i int, s string) bool {
+	recover()
+	return true
+}
+
+func doNestedPanic() {
+	defer func() {
+		recover()
+	}()
+	recoverThenPanic()
+}
+
+func recoverThenPanic() {
+	recover()
+	panic("panic")
 }
 `

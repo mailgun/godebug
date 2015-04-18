@@ -177,31 +177,30 @@ type loopState struct {
 	newIdents []*ast.Ident
 }
 
-func rewriteFnWithRecovers(body *ast.BlockStmt) (wrapped *ast.FuncLit) {
-	// The formatting of the channel declarations is ugly, but it's presented this way here to show how it will look in the actual output.
+func rewriteFnWithRecovers(body *ast.BlockStmt, fnType *ast.FuncType) (wrapped *ast.FuncLit) {
+	// The formatting of the channel declaration is ugly, but it's presented this way here to show how it will look in the actual output.
 	// As far as I know, I would need to set the token.Pos values for the left and right braces of the struct and interface type literals
 	// in order to get them on one line, but I don't think I can do that without computing all of the other token.Pos values for everything
 	// else I generate.
-	newBody := astPrintf(`
-		quit := make(chan struct {
+	// TODO: These identifiers will probably conflict if there is a nested function that also has unnamed outputs. Should probably make a better gensym.
+	outputDecls, outputs := inputsOrOutputs(fnType.Results, idents.result)
+	if len(outputs) > 0 {
+		body.List = astPrintf(`%s = func() (%s) {%s}()`, outputs, fnType.Results, body.List)
+	}
+	body.List = astPrintf(`
+		{{%s}}
+		_r := make(chan chan interface {
 		})
-		_godebug_recover_chan_ := make(chan chan interface {
+		recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
+			%s
 		})
-		rr := make(chan interface {
-		})
-		godebug.Go(func() {
-		})
-		for {
-			select {
-			case <-quit:
-				return
-			case _godebug_recover_chan_ <- rr:
-				rr <- recover()
-			}
-		}`)
-	wrapped = newBody[3].(*ast.ExprStmt).X.(*ast.CallExpr).Args[0].(*ast.FuncLit)
-	wrapped.Body.List = body.List
-	body.List = newBody
+		for recoverChan := range recovers {
+			recoverChan <- recover()
+		}
+		if panicVal, ok := <-panicChan; ok {
+			panic(panicVal)
+		}
+		{{return %s}}`, outputDecls, body.List, outputs)
 	body.Rbrace = token.NoPos // without this I was getting extra whitespace at the end of the function
 	return wrapped
 }
@@ -390,8 +389,7 @@ func (v *visitor) finalizeNode() {
 			break
 		}
 		if v.hasRecovers {
-			i.Body = genEnterFuncLit(i.Type, i.Body, true)
-			rewriteFnWithRecovers(i.Body)
+			rewriteFnWithRecovers(i.Body, i.Type)
 			break
 		}
 		declOuts, outputs := inputsOrOutputs(i.Type.Results, idents.result)
@@ -411,9 +409,10 @@ func (v *visitor) finalizeNode() {
 		i.Body.List = append(prepend, i.Body.List...)
 
 	case *ast.FuncLit:
-		i.Body = genEnterFuncLit(i.Type, i.Body, v.hasRecovers)
 		if v.hasRecovers {
-			rewriteFnWithRecovers(i.Body)
+			rewriteFnWithRecovers(i.Body, i.Type)
+		} else {
+			i.Body = genEnterFuncLit(i.Type, i.Body, v.hasRecovers)
 		}
 
 	case *ast.BlockStmt:
@@ -761,7 +760,7 @@ func (v *visitor) createScope() {
 }
 
 var idents struct {
-	ctx, ok, scope, receiver, fileScope, fileContents, godebug, result, input string
+	ctx, ok, scope, receiver, fileScope, fileContents, godebug, result, input, recoverChan, recoverChanChan, recovers, panicVal, panicChan string
 }
 
 func generateGodebugPkgName(f *ast.File) string {
@@ -790,6 +789,11 @@ func generateGodebugIdentifiers(f *ast.File) {
 	idents.ok = createConflictFreeName("ok", f, false)
 	idents.scope = createConflictFreeName("scope", f, false)
 	idents.receiver = createConflictFreeName("receiver", f, false)
+	idents.recoverChan = createConflictFreeName("rr", f, false)
+	idents.recoverChanChan = createConflictFreeName("r", f, false)
+	idents.recovers = createConflictFreeName("recovers", f, false)
+	idents.panicVal = createConflictFreeName("v", f, false)
+	idents.panicChan = createConflictFreeName("panicChan", f, false)
 
 	idents.godebug = generateGodebugPkgName(f)
 
@@ -913,7 +917,7 @@ func (v *recoverVisitor) Visit(node ast.Node) ast.Visitor {
 }
 
 func rewriteRecoverCall(parent, _recover ast.Node) {
-	rewritten, _ := parser.ParseExpr("<-(<-_godebug_recover_chan_)")
+	rewritten, _ := parser.ParseExpr(fmt.Sprintf("<-(<-%s)", idents.recoverChanChan))
 	rewritten.(*ast.UnaryExpr).OpPos = _recover.Pos()
 	v := reflect.ValueOf(parent).Elem()
 	for i := 0; i < v.NumField(); i++ {

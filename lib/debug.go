@@ -175,6 +175,57 @@ func EnterFuncLit(fn func(*Context)) (ctx *Context, proceed bool) {
 	return &Context{goroutine: val.(uint32)}, true
 }
 
+// EnterFuncWithRecovers is a special wrapper for functions that call recover().
+// recover only works if it is called directly by a deferred function. It does not work if
+// a deferred function calls a function that in turn calls another function that calls recover.
+// But EnterFunc and EnterFuncLit depend on being able to wrap their functions and call them
+// farther down in the stack.
+//
+// The solution is to create a new goroutine, use EnterFuncLit as normal in the new goroutine,
+// and have the code generator replace calls to recover with channel communications. Then in
+// the original function frame, we call recover when asked to and pass its value into the
+// new goroutine over a channel.
+//
+// EnterFuncWithRecovers takes care of maintaining goroutine-local-storage in the new
+// goroutine, as well as propagating any panic from that goroutine to the original goroutine.
+func EnterFuncWithRecovers(r chan chan interface{}, fn func(*Context)) (<-chan chan interface{}, chan interface{}) {
+	var (
+		quit      = make(chan struct{})
+		recovers  = make(chan chan interface{})
+		rr        = make(chan interface{})
+		panicChan = make(chan interface{})
+		ctx       *Context
+		ok        bool
+	)
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			case r <- rr: // send the read end to the embedded function
+				recovers <- rr // send the write end to the calling function
+			}
+		}
+	}()
+	Go(func() {
+		didPanic := true
+		defer func() {
+			close(quit)
+			close(recovers)
+			if didPanic {
+				panicChan <- recover()
+			}
+			close(panicChan)
+		}()
+		if ctx, ok = EnterFuncLit(fn); ok {
+			defer ExitFunc(ctx)
+			fn(ctx)
+		}
+		didPanic = false
+	})
+	return recovers, panicChan
+}
+
 // ExitFunc marks the end of a function.
 func ExitFunc(ctx *Context) {
 	if atomic.LoadUint32(&currentGoroutine) != ctx.goroutine {

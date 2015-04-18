@@ -59,6 +59,11 @@ func replaceIdents(format string) string {
 		"ok", idents.ok,
 		"scope", idents.scope,
 		"receiver", idents.receiver,
+		"recoverChan", idents.recoverChan,
+		"_r", idents.recoverChanChan,
+		"recovers", idents.recovers,
+		"panicVal", idents.panicVal,
+		"panicChan", idents.panicChan,
 		"godebug", idents.godebug)
 	return r.Replace(format)
 }

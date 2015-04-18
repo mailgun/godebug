@@ -56,4 +56,25 @@ func main() {
 	doPanic(r4)
 	doNestedRecover(r1)
 	doNestedRecover(r3)
+
+	recovererWithParams(2, "foo")
+
+	doNestedPanic()
+}
+
+func recovererWithParams(i int, s string) bool {
+	recover()
+	return true
+}
+
+func doNestedPanic() {
+	defer func() {
+		recover()
+	}()
+	recoverThenPanic()
+}
+
+func recoverThenPanic() {
+	recover()
+	panic("panic")
 }
