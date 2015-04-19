@@ -32,6 +32,14 @@ var (
 	work         = runTestFlags.Bool("godebugwork", false, "print the name of the temporary work directory and do not delete it when exiting")
 )
 
+func init() {
+	// Hack for godebug's CI system. The CI can't override PATH in its builders,
+	// but it can set new environment variables.
+	if p := os.Getenv("GODEBUG_GO_PATH"); p != "" {
+		os.Setenv("PATH", p+string(filepath.ListSeparator)+os.Getenv("PATH"))
+	}
+}
+
 func usage() {
 	log.Print(
 		`godebug is a tool for debugging Go programs.
