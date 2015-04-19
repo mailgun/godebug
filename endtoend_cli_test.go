@@ -212,14 +212,18 @@ func listToMap(list []string) map[string]bool {
 }
 
 // equivalent does a linewise comparison of a and b.
-// Each line must be exactly equal or the want line must end in "//substr"
-// and be a substring of the got line.
+// For each line:
+//    got exactly equals want OR
+//    want ends in "//substr" and is a substring of got OR
+//    want ends in "//slashes" and runtime.GOOS == "windows" and got equals want with its slashes swapped for backslashes
 // Otherwise equivalent returns false.
 func equivalent(got, want []byte) bool {
 	var (
 		gotLines  = bytes.Split(got, newline)
 		wantLines = bytes.Split(want, newline)
 		substr    = []byte("//substr")
+		slashes   = []byte("//slashes")
+		slash     = []byte{'/'}
 		gg, ww    []byte
 	)
 
@@ -229,6 +233,9 @@ func equivalent(got, want []byte) bool {
 
 	for i := range gotLines {
 		gg, ww = gotLines[i], wantLines[i]
+		if bytes.HasSuffix(ww, slashes) {
+			ww = bytes.Replace(ww[:len(ww)-len(slashes)], slash, []byte{filepath.Separator}, -1)
+		}
 		if !(bytes.Equal(gg, ww) || bytes.HasSuffix(ww, substr) && bytes.Contains(gg, ww[:len(ww)-len(substr)])) {
 			return false
 		}

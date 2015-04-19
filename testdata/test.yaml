@@ -186,7 +186,7 @@ creates:
     - $TMP/src/testpkg2/test_test.go
 
 transcript: |
-    godebug test: Ignoring breakpoint at foo/subfoo/subfoo.go:10 because package "subfoo" has not been flagged for instrumentation. See 'godebug help test'.
+    godebug test: Ignoring breakpoint at foo/subfoo/subfoo.go:10 because package "subfoo" has not been flagged for instrumentation. See 'godebug help test'.//slashes
 
     -> foo.Foo()
     (godebug) step
