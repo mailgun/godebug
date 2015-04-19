@@ -111,6 +111,7 @@ func TestUpdatedSource(t *testing.T) {
 
 	// Check that godebug run uses the new version of foo.
 	godebug := compileGodebug(t)
+	defer os.Remove(godebug)
 	cmd = exec.Command(godebug, "run", filepath.Join(tmpDir, "src", "bar", "main.go"))
 	cmd.Env = os.Environ()
 	overrideVar(cmd, "GOPATH", tmpDir)
