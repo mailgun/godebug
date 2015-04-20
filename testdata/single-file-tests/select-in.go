@@ -1,10 +1,6 @@
 package main
 
-import (
-	"fmt"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "fmt"
 
 func foo() chan int {
 	return make(chan int)
@@ -25,7 +21,7 @@ func main() {
 
 	_, _ = r1, ok
 
-	godebug.SetTrace()
+	_ = "breakpoint"
 
 	// -------------------
 	// Check simple cases.

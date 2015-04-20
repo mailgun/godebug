@@ -2,11 +2,7 @@ package testpkg
 
 // This file was written for the test cases in testdata/test.txt
 
-import (
-	"testing"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "testing"
 
 func TestA(t *testing.T) {
 	_ = "before Func1 -- debugger should not be paused yet"
@@ -21,6 +17,6 @@ func TestB(t *testing.T) {
 }
 
 func TestC(*testing.T) {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	_ = "in TestC"
 }

@@ -1,9 +1,7 @@
 package testpkg
 
-import "github.com/mailgun/godebug/lib"
-
 func Func1() {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	_ = "inside Func1"
 }
 

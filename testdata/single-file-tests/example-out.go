@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/mailgun/godebug/lib"
 )
 
@@ -13,27 +12,28 @@ func main() {
 	if !ok {
 		return
 	}
-	godebug.Line(ctx, example_in_go_scope, 10)
+	godebug.Line(ctx, example_in_go_scope, 6)
 	x := mul(1, 2)
 	scope := example_in_go_scope.EnteringNewChildScope()
 	scope.Declare("x", &x)
 	godebug.SetTraceGen(ctx)
-	godebug.Line(ctx, scope, 12)
+	godebug.Line(ctx, scope, 8)
+
 	x = mul(x, x)
-	godebug.Line(ctx, scope, 13)
+	godebug.Line(ctx, scope, 9)
 	if x == 4 {
-		godebug.Line(ctx, scope, 14)
+		godebug.Line(ctx, scope, 10)
 		fmt.Println("It works! x == 4.")
 	} else {
-		godebug.ElseIfSimpleStmt(ctx, scope, 15)
+		godebug.ElseIfSimpleStmt(ctx, scope, 11)
 		n := 2
-		godebug.ElseIfExpr(ctx, scope, 15)
+		godebug.ElseIfExpr(ctx, scope, 11)
 		if n == 3 {
-			godebug.Line(ctx, scope, 16)
+			godebug.Line(ctx, scope, 12)
 			fmt.Println("Math is broken. Ah!")
 		} else {
-			godebug.Line(ctx, scope, 17)
-			godebug.Line(ctx, scope, 18)
+			godebug.Line(ctx, scope, 13)
+			godebug.Line(ctx, scope, 14)
 			fmt.Println("What's going on? x ==", x)
 		}
 	}
@@ -50,17 +50,17 @@ func add(n, m int) int {
 	defer godebug.ExitFunc(ctx)
 	scope := example_in_go_scope.EnteringNewChildScope()
 	scope.Declare("n", &n, "m", &m)
-	godebug.Line(ctx, scope, 23)
+	godebug.Line(ctx, scope, 19)
 	if n == 0 {
-		godebug.Line(ctx, scope, 24)
+		godebug.Line(ctx, scope, 20)
 		return m
 	}
-	godebug.Line(ctx, scope, 26)
+	godebug.Line(ctx, scope, 22)
 	if m == 0 {
-		godebug.Line(ctx, scope, 27)
+		godebug.Line(ctx, scope, 23)
 		return n
 	}
-	godebug.Line(ctx, scope, 29)
+	godebug.Line(ctx, scope, 25)
 	return n + m
 }
 
@@ -75,34 +75,30 @@ func mul(n, m int) int {
 	defer godebug.ExitFunc(ctx)
 	scope := example_in_go_scope.EnteringNewChildScope()
 	scope.Declare("n", &n, "m", &m)
-	godebug.Line(ctx, scope, 33)
+	godebug.Line(ctx, scope, 29)
 	var x int
 	scope.Declare("x", &x)
 	{
 		scope := scope.EnteringNewChildScope()
 		for i := 0; i < m; i++ {
-			godebug.Line(ctx, scope, 34)
+			godebug.Line(ctx, scope, 30)
 			scope.Declare("i", &i)
-			godebug.Line(ctx, scope, 35)
+			godebug.Line(ctx, scope, 31)
 			x = add(x, m)
 		}
-		godebug.Line(ctx, scope, 34)
+		godebug.Line(ctx, scope, 30)
 	}
-	godebug.Line(ctx, scope, 37)
+	godebug.Line(ctx, scope, 33)
 	return x
 }
 
 var example_in_go_contents = `package main
 
-import (
-	"fmt"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "fmt"
 
 func main() {
 	x := mul(1, 2)
-	godebug.SetTrace()
+	_ = "breakpoint"
 	x = mul(x, x)
 	if x == 4 {
 		fmt.Println("It works! x == 4.")

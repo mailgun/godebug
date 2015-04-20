@@ -3,14 +3,12 @@ package testpkg2
 import (
 	"testing"
 
-	"github.com/mailgun/godebug/lib"
-
 	"foo"
 	"foo/subfoo"
 )
 
 func TestFoos(t *testing.T) {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	foo.Foo()
 	subfoo.SubFoo()
 }

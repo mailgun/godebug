@@ -151,7 +151,21 @@ func listNewIdentsFromAssign(assign *ast.AssignStmt) (idents []*ast.Ident) {
 	return
 }
 
-func isSetTraceCall(node ast.Node) (b bool) {
+func IsBreakpoint(node ast.Node) (b bool) {
+	return isOldBreakpoint(node) || isNewBreakpoint(node)
+}
+
+func isNewBreakpoint(node ast.Node) (b bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			b = false
+		}
+	}()
+	a := node.(*ast.AssignStmt)
+	return a.Lhs[0].(*ast.Ident).Name == "_" && a.Rhs[0].(*ast.BasicLit).Value == `"breakpoint"`
+}
+
+func isOldBreakpoint(node ast.Node) (b bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			b = false
@@ -636,17 +650,15 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 		}
 	}
 
-	if !isSetTraceCall(node) {
+	if !IsBreakpoint(node) {
 		v.stmtBuf = append(v.stmtBuf, newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(node.Pos()))))
 	}
 
 	// Copy the statement into the new block we are building.
 	if stmt, ok := node.(ast.Stmt); ok {
-		if isSetTraceCall(node) {
-			// Rewrite godebug.SetTrace() as godebug.SetTraceGen(ctx)
-			call := stmt.(*ast.ExprStmt).X.(*ast.CallExpr)
-			call.Args = []ast.Expr{ast.NewIdent(idents.ctx)}
-			call.Fun.(*ast.SelectorExpr).Sel.Name = "SetTraceGen"
+		if IsBreakpoint(node) {
+			// Rewrite `godebug.SetTrace()` and `_ = "breakpoint"` as `godebug.SetTraceGen(ctx)`.
+			stmt = astPrintf("godebug.SetTraceGen(ctx)")[0]
 		}
 		v.stmtBuf = append(v.stmtBuf, stmt)
 	}

@@ -1,12 +1,10 @@
-// Using the list command.
-
 -> x = mul(x, x)
 (godebug) list
 
 
     func main() {
     	x := mul(1, 2)
-    	godebug.SetTrace()
+    	_ = "breakpoint"
 --> 	x = mul(x, x)
     	if x == 4 {
     		fmt.Println("It works! x == 4.")
@@ -19,7 +17,7 @@
 
     func main() {
     	x := mul(1, 2)
-    	godebug.SetTrace()
+    	_ = "breakpoint"
     	x = mul(x, x)
 --> 	if x == 4 {
     		fmt.Println("It works! x == 4.")
@@ -31,7 +29,7 @@
 -> } else if n := 2; n == 3 {
 (godebug) l
 
-    	godebug.SetTrace()
+    	_ = "breakpoint"
     	x = mul(x, x)
     	if x == 4 {
     		fmt.Println("It works! x == 4.")

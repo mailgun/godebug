@@ -91,9 +91,9 @@ func main() {
 			println("test")
 		}
 	}
-
 	godebug.SetTraceGen(ctx)
 	godebug.Line(ctx, scope, 43)
+
 	const n = 10
 	scope.Constant("n", n)
 	godebug.Line(ctx, scope, 44)
@@ -350,7 +350,7 @@ func main() {
 	}
 
 	// Constant declaration.
-	godebug.SetTrace()
+	_ = "breakpoint"
 	const n = 10
 	_ = n
 

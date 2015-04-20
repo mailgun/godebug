@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-
 	"github.com/mailgun/godebug/lib"
 )
 
@@ -12,7 +11,7 @@ func r1() {
 	_r := make(chan chan interface {
 	})
 	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
-		godebug.Line(ctx, recover_in_go_scope, 10)
+		godebug.Line(ctx, recover_in_go_scope, 6)
 		<-(<-_r)
 	})
 	for rr := range recovers {
@@ -27,18 +26,18 @@ func r2() {
 	_r := make(chan chan interface {
 	})
 	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
-		godebug.Line(ctx, recover_in_go_scope, 14)
+		godebug.Line(ctx, recover_in_go_scope, 10)
 		if r := <-(<-_r); r == nil {
 			scope := recover_in_go_scope.EnteringNewChildScope()
 			scope.Declare("r", &r)
-			godebug.Line(ctx, scope, 15)
+			godebug.Line(ctx, scope, 11)
 			log.Fatal("r2: Expected panic, but it didn't happen.")
 		}
-		godebug.Line(ctx, recover_in_go_scope, 17)
+		godebug.Line(ctx, recover_in_go_scope, 13)
 		if r := <-(<-_r); r != nil {
 			scope := recover_in_go_scope.EnteringNewChildScope()
 			scope.Declare("r", &r)
-			godebug.Line(ctx, scope, 18)
+			godebug.Line(ctx, scope, 14)
 			log.Fatal("r2: Second recover should return nil.")
 		}
 	})
@@ -54,7 +53,7 @@ var r3 = func() {
 	_r := make(chan chan interface {
 	})
 	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
-		godebug.Line(ctx, recover_in_go_scope, 23)
+		godebug.Line(ctx, recover_in_go_scope, 19)
 		<-(<-_r)
 	})
 	for rr := range recovers {
@@ -69,18 +68,18 @@ var r4 = func() {
 	_r := make(chan chan interface {
 	})
 	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
-		godebug.Line(ctx, recover_in_go_scope, 27)
+		godebug.Line(ctx, recover_in_go_scope, 23)
 		if r := <-(<-_r); r == nil {
 			scope := recover_in_go_scope.EnteringNewChildScope()
 			scope.Declare("r", &r)
-			godebug.Line(ctx, scope, 28)
+			godebug.Line(ctx, scope, 24)
 			log.Fatal("r4: Expected panic, but it didn't happen.")
 		}
-		godebug.Line(ctx, recover_in_go_scope, 30)
+		godebug.Line(ctx, recover_in_go_scope, 26)
 		if r := <-(<-_r); r != nil {
 			scope := recover_in_go_scope.EnteringNewChildScope()
 			scope.Declare("r", &r)
-			godebug.Line(ctx, scope, 31)
+			godebug.Line(ctx, scope, 27)
 			log.Fatal("r4: Second recover should return nil.")
 		}
 	})
@@ -102,10 +101,10 @@ func doPanic(recoverer func()) {
 	defer godebug.ExitFunc(ctx)
 	scope := recover_in_go_scope.EnteringNewChildScope()
 	scope.Declare("recoverer", &recoverer)
-	godebug.Line(ctx, scope, 36)
+	godebug.Line(ctx, scope, 32)
 	defer recoverer()
-	defer godebug.Defer(ctx, scope, 36)
-	godebug.Line(ctx, scope, 37)
+	defer godebug.Defer(ctx, scope, 32)
+	godebug.Line(ctx, scope, 33)
 	panic("doPanic: panic")
 }
 
@@ -119,18 +118,18 @@ func doNestedRecover(recoverer func()) {
 	defer godebug.ExitFunc(ctx)
 	scope := recover_in_go_scope.EnteringNewChildScope()
 	scope.Declare("recoverer", &recoverer)
-	godebug.Line(ctx, scope, 41)
+	godebug.Line(ctx, scope, 37)
 	defer func() {
 		_r := make(chan chan interface {
 		})
 		recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
-			godebug.Line(ctx, scope, 43)
+			godebug.Line(ctx, scope, 39)
 			recoverer()
-			godebug.Line(ctx, scope, 44)
+			godebug.Line(ctx, scope, 40)
 			if r := <-(<-_r); r == nil {
 				scope := scope.EnteringNewChildScope()
 				scope.Declare("r", &r)
-				godebug.Line(ctx, scope, 45)
+				godebug.Line(ctx, scope, 41)
 				log.Fatal("doNestedRecover: Expected to still be panicking, but we aren't.")
 			}
 		})
@@ -141,8 +140,8 @@ func doNestedRecover(recoverer func()) {
 			panic(v)
 		}
 	}()
-	defer godebug.Defer(ctx, scope, 41)
-	godebug.Line(ctx, scope, 48)
+	defer godebug.Defer(ctx, scope, 37)
+	godebug.Line(ctx, scope, 44)
 	panic("doNestedRecover: panic")
 }
 
@@ -152,22 +151,23 @@ func main() {
 		return
 	}
 	godebug.SetTraceGen(ctx)
-	godebug.Line(ctx, recover_in_go_scope, 53)
+	godebug.Line(ctx, recover_in_go_scope, 49)
+
 	doPanic(r1)
-	godebug.Line(ctx, recover_in_go_scope, 54)
+	godebug.Line(ctx, recover_in_go_scope, 50)
 	doPanic(r2)
-	godebug.Line(ctx, recover_in_go_scope, 55)
+	godebug.Line(ctx, recover_in_go_scope, 51)
 	doPanic(r3)
-	godebug.Line(ctx, recover_in_go_scope, 56)
+	godebug.Line(ctx, recover_in_go_scope, 52)
 	doPanic(r4)
-	godebug.Line(ctx, recover_in_go_scope, 57)
+	godebug.Line(ctx, recover_in_go_scope, 53)
 	doNestedRecover(r1)
-	godebug.Line(ctx, recover_in_go_scope, 58)
+	godebug.Line(ctx, recover_in_go_scope, 54)
 	doNestedRecover(r3)
-	godebug.Line(ctx, recover_in_go_scope, 60)
+	godebug.Line(ctx, recover_in_go_scope, 56)
 
 	recovererWithParams(2, "foo")
-	godebug.Line(ctx, recover_in_go_scope, 62)
+	godebug.Line(ctx, recover_in_go_scope, 58)
 
 	doNestedPanic()
 }
@@ -180,9 +180,9 @@ func recovererWithParams(i int, s string) bool {
 		result1 = func() bool {
 			scope := recover_in_go_scope.EnteringNewChildScope()
 			scope.Declare("i", &i, "s", &s)
-			godebug.Line(ctx, scope, 66)
+			godebug.Line(ctx, scope, 62)
 			<-(<-_r)
-			godebug.Line(ctx, scope, 67)
+			godebug.Line(ctx, scope, 63)
 			return true
 		}()
 	})
@@ -201,12 +201,12 @@ func doNestedPanic() {
 		return
 	}
 	defer godebug.ExitFunc(ctx)
-	godebug.Line(ctx, recover_in_go_scope, 71)
+	godebug.Line(ctx, recover_in_go_scope, 67)
 	defer func() {
 		_r := make(chan chan interface {
 		})
 		recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
-			godebug.Line(ctx, recover_in_go_scope, 72)
+			godebug.Line(ctx, recover_in_go_scope, 68)
 			<-(<-_r)
 		})
 		for rr := range recovers {
@@ -216,8 +216,8 @@ func doNestedPanic() {
 			panic(v)
 		}
 	}()
-	defer godebug.Defer(ctx, recover_in_go_scope, 71)
-	godebug.Line(ctx, recover_in_go_scope, 74)
+	defer godebug.Defer(ctx, recover_in_go_scope, 67)
+	godebug.Line(ctx, recover_in_go_scope, 70)
 	recoverThenPanic()
 }
 
@@ -225,9 +225,9 @@ func recoverThenPanic() {
 	_r := make(chan chan interface {
 	})
 	recovers, panicChan := godebug.EnterFuncWithRecovers(_r, func(ctx *godebug.Context) {
-		godebug.Line(ctx, recover_in_go_scope, 78)
+		godebug.Line(ctx, recover_in_go_scope, 74)
 		<-(<-_r)
-		godebug.Line(ctx, recover_in_go_scope, 79)
+		godebug.Line(ctx, recover_in_go_scope, 75)
 		panic("panic")
 	})
 	for rr := range recovers {
@@ -240,11 +240,7 @@ func recoverThenPanic() {
 
 var recover_in_go_contents = `package main
 
-import (
-	"log"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "log"
 
 func r1() {
 	recover()
@@ -289,7 +285,7 @@ func doNestedRecover(recoverer func()) {
 }
 
 func main() {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	doPanic(r1)
 	doPanic(r2)
 	doPanic(r3)

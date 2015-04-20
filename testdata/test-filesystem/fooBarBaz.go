@@ -4,12 +4,10 @@ import (
 	"bar"
 	"baz"
 	"foo"
-
-	"github.com/mailgun/godebug/lib"
 )
 
 func main() {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	foo.Foo()
 	bar.Bar()
 	baz.Baz()

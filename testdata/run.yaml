@@ -332,6 +332,6 @@ creates:
     - $TMP/breakpointInDependency.go
 
 transcript: |
-    godebug run: Ignoring breakpoint at testpkg/pkg.go:6 because package "testpkg" has not been flagged for instrumentation. See 'godebug help run'.//slashes
+    godebug run: Ignoring breakpoint at testpkg/pkg.go:4 because package "testpkg" has not been flagged for instrumentation. See 'godebug help run'.//slashes
 
     finished running

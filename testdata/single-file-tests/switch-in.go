@@ -1,17 +1,13 @@
 package main
 
-import (
-	"fmt"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "fmt"
 
 func foo() interface{} {
 	return "hi"
 }
 
 func main() {
-	godebug.SetTrace()
+	_ = "breakpoint"
 
 	switch {
 	case false:

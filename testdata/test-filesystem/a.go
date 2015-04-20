@@ -1,13 +1,9 @@
 package main
 
-import (
-	"foo"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "foo"
 
 func main() {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	foo.HelloWorld()
 	foo.HelloWorld()
 }

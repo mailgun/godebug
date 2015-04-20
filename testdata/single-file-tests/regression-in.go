@@ -39,7 +39,7 @@ func main() {
 	}
 
 	// Constant declaration.
-	godebug.SetTrace()
+	_ = "breakpoint"
 	const n = 10
 	_ = n
 

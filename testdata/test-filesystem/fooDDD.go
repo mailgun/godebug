@@ -5,12 +5,10 @@ package main
 import (
 	"foo"
 	"foo/subfoo"
-
-	"github.com/mailgun/godebug/lib"
 )
 
 func main() {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	foo.Foo()
 	subfoo.SubFoo()
 }

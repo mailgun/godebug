@@ -1,10 +1,6 @@
 package main
 
-import (
-	"log"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "log"
 
 func r1() {
 	recover()
@@ -49,7 +45,7 @@ func doNestedRecover(recoverer func()) {
 }
 
 func main() {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	doPanic(r1)
 	doPanic(r2)
 	doPanic(r3)

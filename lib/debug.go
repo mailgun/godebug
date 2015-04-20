@@ -332,8 +332,7 @@ func Defer(c *Context, s *Scope, line int) {
 	lineWithPrefix(c, s, line, "<Running deferred function>: ")
 }
 
-// SetTrace is the entrypoint to the debugger. The code generator converts
-// this call to a call to SetTraceGen.
+// SetTrace is deprecated. It will be deleted in a future release.
 func SetTrace() {
 }
 

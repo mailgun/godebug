@@ -1,7 +1,5 @@
 package main
 
-import "github.com/mailgun/godebug/lib"
-
 func main() {
 	type myType struct {
 		A int
@@ -10,6 +8,6 @@ func main() {
 		d int
 	}
 	var v myType
-	godebug.SetTrace()
+	_ = "breakpoint"
 	_ = v
 }

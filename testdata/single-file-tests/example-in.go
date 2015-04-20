@@ -1,14 +1,10 @@
 package main
 
-import (
-	"fmt"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "fmt"
 
 func main() {
 	x := mul(1, 2)
-	godebug.SetTrace()
+	_ = "breakpoint"
 	x = mul(x, x)
 	if x == 4 {
 		fmt.Println("It works! x == 4.")

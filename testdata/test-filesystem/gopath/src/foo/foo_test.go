@@ -1,12 +1,8 @@
 package foo
 
-import (
-	"testing"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "testing"
 
 func TestFoo(t *testing.T) {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	t.Fail()
 }

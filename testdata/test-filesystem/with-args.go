@@ -1,15 +1,11 @@
 package main
 
-import (
-	"flag"
-
-	"github.com/mailgun/godebug/lib"
-)
+import "flag"
 
 func main() {
 	var foo string
 	flag.StringVar(&foo, "foo", "foo's default value", "a string flag")
-	godebug.SetTrace()
+	_ = "breakpoint"
 	flag.Parse()
 	_ = foo
 }

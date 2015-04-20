@@ -329,7 +329,7 @@ func checkForUnusedBreakpoints(subcommand string, prog *loader.Program, stdLib m
 		}
 		for _, f := range pkg.Files {
 			ast.Inspect(f, func(node ast.Node) bool {
-				if isSetTraceCall(node) {
+				if gen.IsBreakpoint(node) {
 					pos := prog.Fset.Position(node.Pos())
 					fmt.Printf("godebug %s: Ignoring breakpoint at %s:%d because package %q has not been flagged for instrumentation. See 'godebug help %s'.\n\n",
 						subcommand, filepath.Join(pkg.String(), filepath.Base(pos.Filename)), pos.Line, pkg.Pkg.Name(), subcommand)
@@ -338,17 +338,6 @@ func checkForUnusedBreakpoints(subcommand string, prog *loader.Program, stdLib m
 			})
 		}
 	}
-}
-
-// Copied from gen/gen.go.
-func isSetTraceCall(node ast.Node) (b bool) {
-	defer func() {
-		if r := recover(); r != nil {
-			b = false
-		}
-	}()
-	sel := node.(*ast.ExprStmt).X.(*ast.CallExpr).Fun.(*ast.SelectorExpr)
-	return sel.X.(*ast.Ident).Name == "godebug" && sel.Sel.Name == "SetTrace"
 }
 
 func markAlmostAllPackages(prog *loader.Program, stdLib map[string]bool) {

@@ -23,11 +23,7 @@ For more detail, see the [end of this README](#how-it-works-more-detail).
 
 Insert a breakpoint anywhere in a source file you want to debug:
 
-    godebug.SetTrace()
-
-You'll need to import the godebug package in that file, too:
-
-    import "github.com/mailgun/godebug/lib"
+    _ = "breakpoint"
 
 If the breakpoint is in package main and you don't want to examine any imported packages, you can just run:
 
