@@ -11,7 +11,9 @@ For more detail, see the [end of this README](#how-it-works-more-detail).
 
 ### Status
 
-`godebug` is currently in alpha stage -- you'll probably find rough edges, which we are happy to [fix](https://github.com/mailgun/godebug/issues/new)
+`godebug` is still very new. [File an issue](https://github.com/mailgun/godebug/issues/new) or send me an email if you find any rough edges:
+
+![contact](https://s3.amazonaws.com/f.cl.ly/items/1d0i0W2e3F1K0L3K0Y1N/contact.png)
 
 ### Installation:
 
