@@ -820,6 +820,10 @@ func generateGodebugIdentifiers(f *ast.File) {
 		}
 		return r
 	}, filepath.Base(fs.Position(f.Pos()).Filename))
+	if !unicode.IsLetter(rune(base[0])) {
+		// identifiers must start with letters
+		base = "a" + base
+	}
 	idents.fileScope = createConflictFreeName(base+"_scope", f, false)
 	idents.fileContents = createConflictFreeName(base+"_contents", f, false)
 }

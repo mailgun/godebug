@@ -14,3 +14,11 @@ transcript: |
     (godebug) print s
     "hello"
     (godebug) continue
+---
+desc: godebug should work with filenames that start with numbers
+invocations:
+    - dir: /
+      cmd: godebug run regressions/1.go
+creates:
+    - $TMP/1.go
+transcript:
