@@ -1,4 +1,4 @@
-godebug
+godebug  [![build](https://img.shields.io/badge/build-passing-green.svg)](https://godebug-cross-platform-ci.appspot.com/)
 -------
 
 A cross-platform debugger for Go.
