@@ -1,0 +1,21 @@
+// Pressing enter repeats the previous command.
+// Note that godebug outputs a space after the prompt,
+// which is included in the blank prompts here.
+
+-> _ = "breakpoint"
+(godebug) x
+4
+(godebug) 
+4
+(godebug) n
+-> x = mul(x, x)
+(godebug) 
+-> if x == 4 {
+(godebug) 
+-> } else if n := 2; n == 3 {
+(godebug) 
+-> } else {
+(godebug) 
+-> fmt.Println("What's going on? x ==", x)
+(godebug) 
+What's going on? x == 16

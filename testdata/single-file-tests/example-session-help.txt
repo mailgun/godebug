@@ -14,6 +14,8 @@ Commands:
 Commands may be given by their full name or by their parenthesized abbreviation.
 Any input that is not one of the above commands is interpreted as a variable name.
 
+Pressing enter without typing anything repeats the previous command.
+
 (godebug) help
 
 Commands:
@@ -27,6 +29,8 @@ Commands:
 Commands may be given by their full name or by their parenthesized abbreviation.
 Any input that is not one of the above commands is interpreted as a variable name.
 
+Pressing enter without typing anything repeats the previous command.
+
 (godebug) ?
 
 Commands:
@@ -39,6 +43,8 @@ Commands:
 
 Commands may be given by their full name or by their parenthesized abbreviation.
 Any input that is not one of the above commands is interpreted as a variable name.
+
+Pressing enter without typing anything repeats the previous command.
 
 (godebug) continue
 What's going on? x == 16

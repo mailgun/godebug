@@ -357,7 +357,11 @@ Commands:
 
 Commands may be given by their full name or by their parenthesized abbreviation.
 Any input that is not one of the above commands is interpreted as a variable name.
+
+Pressing enter without typing anything repeats the previous command.
 `
+
+var prevCommand string
 
 func waitForInput(scope *Scope, line int) {
 	for {
@@ -366,6 +370,12 @@ func waitForInput(scope *Scope, line int) {
 			fmt.Println("quitting session")
 			currentState = run
 			return
+		}
+		s = strings.TrimSpace(s)
+		if s == "" {
+			s = prevCommand
+		} else {
+			prevCommand = s
 		}
 		switch s {
 		case "?", "h", "help":

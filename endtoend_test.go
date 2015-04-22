@@ -233,16 +233,17 @@ var newline = []byte("\n")
 // given the bytes sent to stdin and the bytes received from stdout. It assumes
 // input only happens after prompts.
 func interleaveCommands(input, output []byte) (combined []byte) {
-	linesIn := bytes.Split(bytes.TrimSpace(input), newline)
+	linesIn := bytes.Split(input, newline)
 	if len(input) == 0 {
 		linesIn = nil
+	} else if input[len(input)-1] == '\n' {
+		linesIn = linesIn[:len(linesIn)-1]
 	}
-	newlinePrompt := append(newline, prompt...)
-	chunks := bytes.Split(output, newlinePrompt)
+	chunks := bytes.Split(output, prompt)
 	for i, chunk := range chunks {
 		combined = append(combined, chunk...)
 		if i != len(chunks)-1 && len(linesIn) > 0 {
-			combined = append(combined, newlinePrompt...)
+			combined = append(combined, prompt...)
 			combined = append(combined, linesIn[0]...)
 			combined = append(combined, '\n')
 			linesIn = linesIn[1:]
