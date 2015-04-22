@@ -1,6 +1,6 @@
 // Get help.
 
--> x = mul(x, x)
+-> _ = "breakpoint"
 (godebug) h
 
 Commands:

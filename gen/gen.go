@@ -658,9 +658,10 @@ func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	if stmt, ok := node.(ast.Stmt); ok {
 		if IsBreakpoint(node) {
 			// Rewrite `godebug.SetTrace()` and `_ = "breakpoint"` as `godebug.SetTraceGen(ctx)`.
-			stmt = astPrintf("godebug.SetTraceGen(ctx)")[0]
+			v.stmtBuf = append(v.stmtBuf, astPrintf("godebug.SetTraceGen(ctx)")[0], newCallStmt(idents.godebug, "Line", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(node.Pos()))))
+		} else {
+			v.stmtBuf = append(v.stmtBuf, stmt)
 		}
-		v.stmtBuf = append(v.stmtBuf, stmt)
 	}
 
 	// If this statement declared new variables, output a Declare call.

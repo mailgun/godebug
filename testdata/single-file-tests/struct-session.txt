@@ -1,6 +1,6 @@
 // Should print structs using the %#v format flag
 
--> _ = v
+-> _ = "breakpoint"
 (godebug) v
 main.myType{A:0, B:"", C:false, d:0}
 (godebug) continue

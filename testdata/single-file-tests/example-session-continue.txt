@@ -1,5 +1,7 @@
 // Step for a bit and then run the rest of the program.
 
+-> _ = "breakpoint"
+(godebug) n
 -> x = mul(x, x)
 (godebug) x
 4

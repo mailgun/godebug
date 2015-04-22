@@ -1,3 +1,5 @@
+-> _ = "breakpoint"
+(godebug) n
 -> x = mul(x, x)
 (godebug) list
 

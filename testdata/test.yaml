@@ -10,6 +10,8 @@ creates:
     - $TMP/src/foo/foo_test.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> t.Fail()
     (godebug) next
     --- FAIL: TestFoo //substr
@@ -29,6 +31,8 @@ creates:
     - $TMP/src/testpkg/pkg_test.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> _ = "inside Func1"
     (godebug) next
     -> _ = "after Func1"
@@ -39,6 +43,8 @@ transcript: |
     (godebug) step
     -> _ = "inside Func2"
     (godebug) continue
+    -> _ = "breakpoint"
+    (godebug) n
     -> _ = "in TestC"
     (godebug) continue
     PASS
@@ -69,6 +75,8 @@ creates:
     - $TMP/src/testpkg/pkg_test.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> _ = "in TestC"
     (godebug) continue
     PASS
@@ -84,6 +92,8 @@ creates:
     - $TMP/src/testpkg/subdir/pkg_test.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     foo
@@ -101,6 +111,8 @@ creates:
 
 transcript: |
     $TMP
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     foo
@@ -121,6 +133,8 @@ creates:
 
 transcript: |
     $TMP
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     -> fmt.Println("foo")
@@ -144,6 +158,8 @@ creates:
     - $TMP/src/foo/foo.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     -> fmt.Println("foo")
@@ -164,6 +180,8 @@ creates:
     - $TMP/src/foo/subfoo/subfoo.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     -> fmt.Println("foo")
@@ -188,6 +206,8 @@ creates:
 transcript: |
     godebug test: Ignoring breakpoint at foo/subfoo/subfoo.go:8 because package "subfoo" has not been flagged for instrumentation. See 'godebug help test'.//slashes
 
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     foo

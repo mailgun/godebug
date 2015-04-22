@@ -21,6 +21,7 @@ func main() {
 	scope := struct_in_go_scope.EnteringNewChildScope()
 	scope.Declare("v", &v)
 	godebug.SetTraceGen(ctx)
+	godebug.Line(ctx, scope, 11)
 	godebug.Line(ctx, scope, 12)
 
 	_ = v

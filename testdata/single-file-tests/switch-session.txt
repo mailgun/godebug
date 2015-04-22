@@ -1,3 +1,5 @@
+-> _ = "breakpoint"
+(godebug) n
 -> switch {
 (godebug) n
 -> case false:

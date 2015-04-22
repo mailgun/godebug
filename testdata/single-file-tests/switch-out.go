@@ -26,6 +26,7 @@ func main() {
 		return
 	}
 	godebug.SetTraceGen(ctx)
+	godebug.Line(ctx, switch_in_go_scope, 10)
 	godebug.Line(ctx, switch_in_go_scope, 12)
 
 	switch {

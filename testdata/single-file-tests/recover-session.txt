@@ -1,3 +1,5 @@
+-> _ = "breakpoint"
+(godebug) n
 -> doPanic(r1)
 (godebug) s
 -> defer recoverer()

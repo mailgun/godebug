@@ -1,7 +1,5 @@
 package main
 
-import "github.com/mailgun/godebug/lib"
-
 func main() {
 	// Nested scope in the first declaration in a function.
 	foo := func(i int) int {
@@ -131,7 +129,7 @@ func init() {
 
 // Don't repeat switch initialization, use correct scope inside switch.
 func switchInit() {
-	godebug.SetTrace()
+	_ = "breakpoint"
 	switch a := a(); {
 	default:
 		_ = a

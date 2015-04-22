@@ -6,10 +6,14 @@ invocations:
 creates:
     - $TMP/loop-decl.go
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> _ = i
     (godebug) print i
     0
     (godebug) continue
+    -> _ = "breakpoint"
+    (godebug) n
     -> _ = s
     (godebug) print s
     "hello"

@@ -17,6 +17,7 @@ func main() {
 	scope := example_in_go_scope.EnteringNewChildScope()
 	scope.Declare("x", &x)
 	godebug.SetTraceGen(ctx)
+	godebug.Line(ctx, scope, 7)
 	godebug.Line(ctx, scope, 8)
 
 	x = mul(x, x)

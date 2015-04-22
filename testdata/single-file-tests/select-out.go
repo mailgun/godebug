@@ -63,6 +63,7 @@ func main() {
 
 	_, _ = r1, ok
 	godebug.SetTraceGen(ctx)
+	godebug.Line(ctx, scope, 24)
 	godebug.Line(ctx, scope, 29)
 
 	go func() {

@@ -10,6 +10,8 @@ creates:
     - $TMP/a.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.HelloWorld()
     (godebug) step
     Hello, world!
@@ -27,6 +29,8 @@ creates:
 
 transcript: |
     $TMP
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.HelloWorld()
     (godebug) step
     Hello, world!
@@ -47,6 +51,8 @@ creates:
 
 transcript: |
     $TMP
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.HelloWorld()
     (godebug) step
     -> fmt.Println("Hello, world!")
@@ -78,6 +84,8 @@ creates:
     - $TMP/src/baz/baz.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     foo
@@ -109,6 +117,8 @@ creates:
     - $TMP/src/baz/baz.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     -> fmt.Println("foo")
@@ -140,6 +150,8 @@ creates:
 transcript: |
     godebug run: heads up: "all" means "all except std". godebug can't step into the standard library yet.
 
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     -> fmt.Println("foo")
@@ -168,6 +180,8 @@ creates:
     - $TMP/src/foo/foo.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.HelloWorld()
     (godebug) step
     -> fmt.Println("Hello, world!")
@@ -190,6 +204,8 @@ creates:
     - $TMP/c.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> b()
     (godebug) step
     -> c()
@@ -209,6 +225,8 @@ creates:
     - $TMP/with-args.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> flag.Parse()
     (godebug) print foo
     "foo's default value"
@@ -313,6 +331,8 @@ creates:
     - $TMP/src/foo/subfoo/subfoo.go
 
 transcript: |
+    -> _ = "breakpoint"
+    (godebug) n
     -> foo.Foo()
     (godebug) step
     -> fmt.Println("foo")

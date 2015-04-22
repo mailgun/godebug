@@ -151,6 +151,7 @@ func main() {
 		return
 	}
 	godebug.SetTraceGen(ctx)
+	godebug.Line(ctx, recover_in_go_scope, 48)
 	godebug.Line(ctx, recover_in_go_scope, 49)
 
 	doPanic(r1)
