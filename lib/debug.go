@@ -378,6 +378,7 @@ func waitForInput(scope *Scope, line int) {
 			prevCommand = s
 		}
 		switch s {
+		case "":
 		case "?", "h", "help":
 			fmt.Println(help)
 			continue
@@ -398,15 +399,20 @@ func waitForInput(scope *Scope, line int) {
 			fmt.Printf("%#v\n", v)
 			continue
 		}
-		var cmd, name string
-		n, _ := fmt.Sscan(s, &cmd, &name)
-		if n == 2 && (cmd == "p" || cmd == "print") {
-			if v, ok := scope.getIdent(strings.TrimSpace(name)); ok {
-				fmt.Printf("%#v\n", v)
-				continue
+		fields := strings.Fields(s)
+		if len(fields) > 0 && (fields[0] == "p" || fields[0] == "print") {
+			if len(fields) == 2 {
+				if v, ok := scope.getIdent(strings.TrimSpace(fields[1])); ok {
+					fmt.Printf("%#v\n", v)
+				} else {
+					fmt.Printf("%s is not in scope (or is in package scope). Can't print it.\n", fields[1])
+				}
+			} else {
+				fmt.Println("usage: print <var>")
 			}
+			continue
 		}
-		fmt.Printf("Command not recognized, sorry! You typed: %q\n", s)
+		fmt.Println("Command not recognized, sorry!")
 	}
 }
 

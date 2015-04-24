@@ -10,15 +10,15 @@
 (godebug) s
 -> var x int
 (godebug) x
-Command not recognized, sorry! You typed: "x"
+Command not recognized, sorry!
 (godebug) p x
-Command not recognized, sorry! You typed: "p x"
+x is not in scope (or is in package scope). Can't print it.
 (godebug) n
 -> for i := 0; i < m; i++ {
 (godebug) x
 0
 (godebug) i
-Command not recognized, sorry! You typed: "i"
+Command not recognized, sorry!
 (godebug) p m
 4
 (godebug) n

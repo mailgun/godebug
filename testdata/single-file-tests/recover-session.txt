@@ -20,11 +20,11 @@
 (godebug) s
 -> if r := recover(); r == nil {
 (godebug) p r
-Command not recognized, sorry! You typed: "p r"
+r is not in scope (or is in package scope). Can't print it.
 (godebug) n
 -> if r := recover(); r != nil {
 (godebug) p r
-Command not recognized, sorry! You typed: "p r"
+r is not in scope (or is in package scope). Can't print it.
 (godebug) n
 -> doPanic(r3)
 (godebug) s
@@ -46,11 +46,11 @@ Command not recognized, sorry! You typed: "p r"
 (godebug) s
 -> if r := recover(); r == nil {
 (godebug) p r
-Command not recognized, sorry! You typed: "p r"
+r is not in scope (or is in package scope). Can't print it.
 (godebug) n
 -> if r := recover(); r != nil {
 (godebug) p r
-Command not recognized, sorry! You typed: "p r"
+r is not in scope (or is in package scope). Can't print it.
 (godebug) n
 -> doNestedRecover(r1)
 (godebug) s

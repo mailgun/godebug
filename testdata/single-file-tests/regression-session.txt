@@ -10,7 +10,7 @@
 (godebug) next
 -> _ = "the variable a should be out of scope"
 (godebug) a
-Command not recognized, sorry! You typed: "a"
+Command not recognized, sorry!
 (godebug) continue
 hello
 test

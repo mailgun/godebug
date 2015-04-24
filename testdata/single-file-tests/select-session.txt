@@ -42,11 +42,11 @@
 < All channel expressions evaluated. Choosing case to proceed. >
 -> case <-c[0]:
 (godebug) hi
-Command not recognized, sorry! You typed: "hi"
+Command not recognized, sorry!
 (godebug) n
 -> hi := "hello"
 (godebug) hi
-Command not recognized, sorry! You typed: "hi"
+Command not recognized, sorry!
 (godebug) n
 -> fmt.Println(hi)
 (godebug) hi
@@ -90,7 +90,7 @@ hello
 (godebug) n
 -> hi := "hello"
 (godebug) hi
-Command not recognized, sorry! You typed: "hi"
+Command not recognized, sorry!
 (godebug) n
 -> fmt.Println(hi)
 (godebug) hi
@@ -183,7 +183,7 @@ true
 (godebug) n
 -> c[0], c[1] = make(chan int), make(chan int) // unbuffered
 (godebug) r2
-Command not recognized, sorry! You typed: "r2"
+Command not recognized, sorry!
 (godebug) n
 -> go func() {
 (godebug) step
