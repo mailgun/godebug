@@ -26,3 +26,11 @@ invocations:
 creates:
     - $TMP/1.go
 transcript:
+---
+desc: else-if should work when no local variables have been declared
+invocations:
+    - dir: /
+      cmd: godebug run regressions/else-if.go
+creates:
+    - $TMP/else-if.go
+transcript:

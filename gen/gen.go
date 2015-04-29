@@ -461,13 +461,13 @@ func (v *visitor) finalizeNode() {
 
 			// Handle initializer, if it exists.
 			if ifstmt.Init != nil {
-				list = append(list, newCallStmt(idents.godebug, "ElseIfSimpleStmt", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope), newInt(pos2line(ifstmt.Init.Pos()))))
+				list = append(list, newCallStmt(idents.godebug, "ElseIfSimpleStmt", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(ifstmt.Init.Pos()))))
 				list = append(list, ifstmt.Init)
 				ifstmt.Init = nil
 			}
 
 			// Handle expression.
-			list = append(list, newCallStmt(idents.godebug, "ElseIfExpr", ast.NewIdent(idents.ctx), ast.NewIdent(idents.scope), newInt(pos2line(ifstmt.Cond.Pos()))))
+			list = append(list, newCallStmt(idents.godebug, "ElseIfExpr", ast.NewIdent(idents.ctx), ast.NewIdent(v.scopeVar), newInt(pos2line(ifstmt.Cond.Pos()))))
 			list = append(list, ifstmt)
 
 			// Swap in the new block.
