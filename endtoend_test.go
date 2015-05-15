@@ -18,7 +18,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kylelemons/godebug/diff"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/github.com/kylelemons/godebug/diff"
 )
 
 var (

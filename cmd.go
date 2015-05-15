@@ -15,11 +15,9 @@ import (
 	"strconv"
 	"strings"
 
-	"bitbucket.org/JeremySchlatter/go-atexit"
-	"github.com/kisielk/gotool"
-
+	"github.com/mailgun/godebug/Godeps/_workspace/src/bitbucket.org/JeremySchlatter/go-atexit"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/github.com/kisielk/gotool"
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
-
 	"github.com/mailgun/godebug/gen"
 )
 
@@ -348,8 +346,8 @@ func markAlmostAllPackages(prog *loader.Program, stdLib map[string]bool) {
 		// skip this package if...
 		case stdLib[path]: // it's part of the standard library
 		case prog.ImportMap[path] == nil: // it's a Created package
-		case path == "github.com/mailgun/godebug/lib": // it's the godebug library
-		case path == "github.com/jtolds/gls": // it's a dependency of the godebug library
+		case strings.HasPrefix(path, "github.com/mailgun/godebug"):
+			// it's the godebug library or one of its dependecies
 
 		// otherwise include it
 		default:

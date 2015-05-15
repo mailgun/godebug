@@ -1,7 +1,26 @@
 {
 	"ImportPath": "github.com/mailgun/godebug",
-	"GoVersion": "go1.4",
+	"GoVersion": "go1.4.2",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
+		{
+			"ImportPath": "bitbucket.org/JeremySchlatter/go-atexit",
+			"Rev": "4d24881b3b10dc2e60d3e6b3b6fce38d3bda546d"
+		},
+		{
+			"ImportPath": "github.com/jtolds/gls",
+			"Rev": "9a4a02dbe491bef4bab3c24fd9f3087d6c4c6690"
+		},
+		{
+			"ImportPath": "github.com/kisielk/gotool",
+			"Rev": "d678387370a2eb9b5b0a33218bc8c9d8de15b6be"
+		},
+		{
+			"ImportPath": "github.com/kylelemons/godebug/diff",
+			"Rev": "808ac284003ce2b08ef590da08f95379e8a06936"
+		},
 		{
 			"ImportPath": "golang.org/x/tools/go/ast/astutil",
 			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
@@ -11,7 +30,15 @@
 			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
 		},
 		{
+			"ImportPath": "golang.org/x/tools/go/gccgoimporter",
+			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
+		},
+		{
 			"ImportPath": "golang.org/x/tools/go/gcimporter",
+			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
+		},
+		{
+			"ImportPath": "golang.org/x/tools/go/importer",
 			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
 		},
 		{
@@ -21,6 +48,10 @@
 		{
 			"ImportPath": "golang.org/x/tools/go/types",
 			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "49c95bdc21843256fb6c4e0d370a05f24a0bf213"
 		}
 	]
 }

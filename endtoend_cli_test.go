@@ -12,8 +12,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kylelemons/godebug/diff"
-	"gopkg.in/yaml.v2"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/github.com/kylelemons/godebug/diff"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/gopkg.in/yaml.v2"
 )
 
 // This file runs tests in the testdata directory, excluding those in testdata/single-file-tests

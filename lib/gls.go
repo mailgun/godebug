@@ -4,7 +4,7 @@ package godebug
 
 // Pure-Go implementation of goroutine local storage.
 
-import "github.com/jtolds/gls"
+import "github.com/mailgun/godebug/Godeps/_workspace/src/github.com/jtolds/gls"
 
 var Go = gls.Go
 

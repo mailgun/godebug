@@ -16,11 +16,11 @@ import (
 	"unicode"
 
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
+	_ "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gccgoimporter"
 	_ "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/types"
 	_ "github.com/mailgun/godebug/lib" // so the library is also installed whenever this package is
-	_ "golang.org/x/tools/go/gccgoimporter"
 )
 
 var (
