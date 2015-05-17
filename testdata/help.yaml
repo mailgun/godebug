@@ -11,6 +11,7 @@ transcript: |
 
     The commands are:
 
+        build     compile a debug-ready Go program
         run       compile, run, and debug a Go program
         test      compile, run, and debug Go package tests
         output    generate debug source code, but do not build or run it
@@ -54,12 +55,14 @@ transcript: |
 invocations:
     - cmd: godebug help run
 transcript: |
-    usage: godebug run [-godebugwork] [-instrument pkgs...] gofiles... [--] [arguments...]
+    usage: godebug run [-godebugwork] [-instrument pkgs...] [-tags 'tag list'] gofiles... [--] [arguments...]
 
-    Run is a wrapper around 'go run'. It generates debugging code for
-    the named Go source files and runs 'go run' on the result.
+    Run emulates 'go run' behavior. It generates debugging code for the
+    named *.go files and then compiles and executes the result.
 
-    Optionally, a '--' argument ends the list of gofiles.
+    Like 'go run' it takes a list of go files which are treated as a
+    single main package. The rest of the arguments is passed to the
+    binary. Optionally, a '--' argument ends the list of gofiles.
 
     By default, godebug generates debugging code only for the named
     Go source files, and not their dependencies. This means that in
@@ -71,20 +74,28 @@ transcript: |
     If -godebugwork is set, godebug will print the name of the
     temporary work directory and not delete it when exiting.
 
+    -tags works like in 'go help build'.
+
 ---
 invocations:
     - cmd: godebug help test
 transcript: |
-    usage: godebug test [-godebugwork] [-instrument pkgs...] [packages] [flags for test binary]
+    usage: godebug test [-godebugwork] [-instrument pkgs...] [-tags 'tag list'] [-c] [-o output] [packages] [flags for test binary]
 
     Test is a wrapper around 'go test'. It generates debugging code for
     the tests in the named packages and runs 'go test' on the result.
 
     As with 'go test', by default godebug test needs no arguments.
 
+    Flags parsing, -c and -o work like for 'go test' - see 'go help test'.
+    The default binary name for -c has the suffix '.test.debug'.
+
+    See also: 'go help testflag'. Note that you have to use the 'test.'
+    prefix like '-test.v'.
+
     By default, godebug generates debugging code only for the named
-    packages, and not their dependencies. This means that in the
-    debugging session you will not be able to step into function
+    Go source files, and not their dependencies. This means that in
+    the debugging session you will not be able to step into function
     calls from imported packages. To instrument other packages,
     pass the -instrument flag. Packages are comma-separated and
     must not be relative.
@@ -92,7 +103,35 @@ transcript: |
     If -godebugwork is set, godebug will print the name of the
     temporary work directory and not delete it when exiting.
 
-    See also: 'go help testflag'.
+    -tags works like in 'go help build'.
+
+---
+invocations:
+    - cmd: godebug help build
+transcript: |
+    usage: godebug build [-godebugwork] [-instrument pkgs...] [-tags 'tag list'] [-o output] [package]
+
+    Build is a wrapper around 'go build'. It generates debugging code for
+    the named target and builds the result.
+
+    Like 'go build' it takes a single main package. If arguments are a list
+    of *.go files they are treated as a single package. Relative packages are
+    not supported - which means you can't leave the package name out, too.
+
+    The output file naming if -o is not passed works like 'go build' (see
+    'go help build') with the addition of the suffix '.debug'.
+
+    By default, godebug generates debugging code only for the named
+    Go source files, and not their dependencies. This means that in
+    the debugging session you will not be able to step into function
+    calls from imported packages. To instrument other packages,
+    pass the -instrument flag. Packages are comma-separated and
+    must not be relative.
+
+    If -godebugwork is set, godebug will print the name of the
+    temporary work directory and not delete it when exiting.
+
+    -tags works like in 'go help build'.
 
 ---
 invocations:
