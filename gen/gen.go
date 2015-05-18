@@ -39,6 +39,11 @@ func Generate(prog *loader.Program, getFileBytes func(string) ([]byte, error), w
 		defs = pkgInfo.Defs
 		_types = pkgInfo.Types
 		pkg = pkgInfo.Pkg
+		path := pkg.Path()
+		if !pkgInfo.Importable && strings.HasSuffix(pkgInfo.Pkg.Name(), "_test") {
+			// EXTERNAL TEST package, strip the _test to find the path
+			path = strings.TrimSuffix(pkg.Path(), "_test")
+		}
 		for _, f := range pkgInfo.Files {
 			fs = prog.Fset
 			fname := fs.Position(f.Pos()).Filename
@@ -65,7 +70,7 @@ func Generate(prog *loader.Program, getFileBytes func(string) ([]byte, error), w
 			}
 			astutil.AddNamedImport(fs, f, importName, "github.com/mailgun/godebug/lib")
 			cfg := printer.Config{Mode: printer.UseSpaces | printer.TabIndent, Tabwidth: 8}
-			out := writerFor(pkg.Path(), fname)
+			out := writerFor(path, fname)
 			defer out.Close()
 			_ = cfg.Fprint(out, fs, f)
 			fmt.Fprintln(out, "\nvar", idents.fileContents, "=", quotedContents)
