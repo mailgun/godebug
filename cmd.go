@@ -288,6 +288,7 @@ func doTest(args []string) {
 	}
 
 	tmpDir := generateSourceFiles(&conf, "test")
+	wd := getwd()
 
 	// Run 'go test -i' once without changing the GOPATH.
 	// This will recompile and install any out-of-date packages.
@@ -319,7 +320,10 @@ func doTest(args []string) {
 		shellGo(tmpDir, goArgs, []string{pkg})
 		// Skip execution if no binary was generated (no test files) or -c was passed
 		if _, err := os.Stat(bin); err == nil && !*c {
+			_, dir := findUnderGopath(wd, pkg)
+			os.Chdir(dir)
 			shell("", bin, testFlags...)
+			os.Chdir(wd)
 		}
 	}
 }
@@ -395,7 +399,7 @@ func generateSourceFiles(conf *loader.Config, subcommand string) (tmpDirPath str
 		if importPath == "main" {
 			filename = filepath.Join(tmpDir, filepath.Base(filename))
 		} else {
-			importPath = findUnderGopath(wd, importPath)
+			importPath, _ = findUnderGopath(wd, importPath)
 			exitIfErr(os.MkdirAll(filepath.Join(tmpDir, "src", importPath), 0770))
 			filename = filepath.Join(tmpDir, "src", importPath, filepath.Base(filename))
 		}
@@ -525,12 +529,12 @@ func mapPkgsToTmpDir(pkgs []string) []string {
 	result := make([]string, len(pkgs))
 	cwd := getwd()
 	for i, pkg := range pkgs {
-		result[i] = findUnderGopath(cwd, pkg)
+		result[i], _ = findUnderGopath(cwd, pkg)
 	}
 	return result
 }
 
-func findUnderGopath(cwd, pkg string) string {
+func findUnderGopath(cwd, pkg string) (string, string) {
 	found, err := build.Import(pkg, cwd, build.FindOnly)
 	if err != nil {
 		logFatalf("Failed to find package %q in findUnderGopath. This is probably a bug -- please report it at https://github.com/mailgun/godebug/issues/new. Thanks!", pkg)
@@ -538,7 +542,7 @@ func findUnderGopath(cwd, pkg string) string {
 	if found.SrcRoot == "" || found.ImportPath == "" {
 		logFatalf("Looks like package %q is not in a GOPATH workspace. godebug doesn't support it right now, but if you open a ticket at https://github.com/mailgun/godebug/issues/new we'll fix it soon. Thanks!", pkg)
 	}
-	return found.ImportPath
+	return found.ImportPath, found.Dir
 }
 
 func mapToTmpDir(tmpDir string, gofiles []string) []string {
