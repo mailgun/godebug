@@ -274,9 +274,16 @@ func doTest(args []string) {
 		packages = []string{"."}
 	}
 
+	// Expand ...
+	packages = gotool.ImportPaths(packages)
+
+	if len(packages) > 1 && (*c || *o != "") {
+		logFatal("godebug test: cannot use -c or -o flag with multiple packages")
+	}
+
 	// Build a loader.Config from the provided packages.
 	conf := newLoader()
-	for _, pkg := range gotool.ImportPaths(packages) {
+	for _, pkg := range packages {
 		exitIfErr(conf.ImportWithTests(pkg))
 	}
 
@@ -302,11 +309,18 @@ func doTest(args []string) {
 	// This resolves some issues that came up with running 'go test' directly:
 	//    (1) 'go test' changes the working directory to that of the source files of the test.
 	//    (2) 'go test' does not forward stdin to the test binary.
-
-	goArgs := []string{"test", "-tags", *tags, "-c", "-o", bin}
-	shellGo(tmpDir, goArgs, mapPkgsToTmpDir(packages))
-	if !*c {
-		shell("", bin, testFlags...)
+	// Do it once for each package since we can't use -c with multiple packages.
+	for _, pkg := range mapPkgsToTmpDir(packages) {
+		if len(packages) > 1 {
+			fmt.Println("===", pkg)
+			os.Remove(bin)
+		}
+		goArgs := []string{"test", "-tags", *tags, "-c", "-o", bin}
+		shellGo(tmpDir, goArgs, []string{pkg})
+		// Skip execution if no binary was generated (no test files) or -c was passed
+		if _, err := os.Stat(bin); err == nil && !*c {
+			shell("", bin, testFlags...)
+		}
 	}
 }
 
