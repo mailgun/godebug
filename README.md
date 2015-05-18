@@ -5,7 +5,7 @@ A cross-platform debugger for Go.
 
 ### How?
 
-`godebug` uses source code generation to instrument your program with debugging calls. [go tool cover](http://blog.golang.org/cover) takes a similar approach to code coverage. When you run `godebug`, it parses your program, instruments function calls, variable declarations, and statement lines, outputs the resulting code somewhere, and runs it. When this modified code runs, it stops at breakpoints and lets you step through the program and inspect variables.
+`godebug` uses source code generation to instrument your program with debugging calls. [go tool cover](http://blog.golang.org/cover) takes a similar approach to code coverage. When you run `godebug`, it parses your program, instruments function calls, variable declarations, and statement lines, outputs the resulting code somewhere, and runs/compiles it. When this modified code runs, it stops at breakpoints and lets you step through the program and inspect variables.
 
 For more detail, see the [end of this README](#how-it-works-more-detail).
 
@@ -33,11 +33,17 @@ If you want to trace the program outside of the main package, list the packages 
 
     $ godebug run -instrument=pkg1,pkg2,pkg3 gofiles... [arguments...]
 
-If you are debugging a test, use 'godebug test':
+If you are debugging a test, use 'godebug test' like you would use 'go test':
 
-    $ godebug test [-instrument pkgs...]
+    $ godebug test [-instrument pkgs...] [packages]
 
-That's it!
+Finally, you can [cross-]compile a debugging binary using 'godebug build':
+
+    $ godebug build [-instrument pkgs...] [-o output] [package]
+
+The compiled binary has no dependencies, so you can build it locally and then debug on i.e. a staging server.
+
+That's it. See 'godebug help' for the full usage.
 
 ### Debugger commands:
 
