@@ -58,7 +58,6 @@ The commands are:
     build     compile a debug-ready Go program
     run       compile, run, and debug a Go program
     test      compile, run, and debug Go package tests
-    output    generate debug source code, but do not build or run it
 
 Use "godebug help [command]" for more information about a command.
 `)
