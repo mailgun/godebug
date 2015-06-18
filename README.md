@@ -98,7 +98,7 @@ When we run this modified version, we see:
 
 And then the program waits for input before proceeding.
 
-We have just implemented a debugger for the first program! It may not seem like much, but this program implements two fundamental debugger behaviors: (1) display the the current state of the program, and (2) do not proceed until instructed by the user. Furthermore, the changes we made were straightforward and easy to automate:
+We have just implemented a debugger for the first program! It may not seem like much, but this program implements two fundamental debugger behaviors: (1) display the current state of the program, and (2) do not proceed until instructed by the user. Furthermore, the changes we made were straightforward and easy to automate:
 
   * insert import statements for `bufio` and `os`, if not already present.
   * in `main()`, insert the statement `fmt.Println(<quote next line>)`
