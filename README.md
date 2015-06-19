@@ -60,6 +60,10 @@ p(rint) [var] | print a variable
 
 The debugger will attempt to interpret any text that does not match the above commands as a variable name. If that variable exists, the debugger will print it.
 
+### Caveats
+
+It is not currently possible to step into standard library packages. (Issue #12)
+
 ### How it works (more detail)
 
 Consider this program:
