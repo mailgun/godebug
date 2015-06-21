@@ -8,6 +8,7 @@ import (
 	"go/printer"
 	"go/token"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,6 +17,7 @@ import (
 	"unicode"
 
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
+	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/exact"
 	_ "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gccgoimporter"
 	_ "github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/gcimporter"
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/loader"
@@ -750,8 +752,8 @@ func newIdentsCall(scopeVar string, newIdents []*ast.Ident, isConst bool) ast.St
 		call.Args[2*i] = newStringLit(strconv.Quote(ident.Name))
 
 		if isConst {
-			// Pass the value if constant.
-			call.Args[2*i+1] = ident
+			// Pass the value if constant. Cast it if it doesn't fit an int32.
+			call.Args[2*i+1] = castIfOverflow(ident)
 		} else {
 			// Pass a pointer if variable.
 			call.Args[2*i+1] = &ast.UnaryExpr{
@@ -761,6 +763,29 @@ func newIdentsCall(scopeVar string, newIdents []*ast.Ident, isConst bool) ast.St
 		}
 	}
 	return expr
+}
+
+var (
+	minInt32 = exact.MakeInt64(math.MinInt32)
+	maxInt32 = exact.MakeInt64(math.MaxInt32)
+)
+
+func castIfOverflow(ident *ast.Ident) ast.Expr {
+	c, ok := defs[ident].(*types.Const)
+	if !ok || c == nil {
+		return ident
+	}
+	v := c.Val()
+	switch {
+	case v.Kind() != exact.Int:
+		return ident
+	case exact.Compare(v, token.LSS, minInt32):
+		return &ast.CallExpr{Fun: ast.NewIdent("int64"), Args: []ast.Expr{ident}}
+	case exact.Compare(v, token.GTR, maxInt32):
+		return &ast.CallExpr{Fun: ast.NewIdent("uint64"), Args: []ast.Expr{ident}}
+	default:
+		return ident
+	}
 }
 
 func (v *visitor) createScope() {

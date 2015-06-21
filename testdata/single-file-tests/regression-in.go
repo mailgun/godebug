@@ -136,3 +136,8 @@ func switchInit() {
 	}
 	_ = "the variable a should be out of scope"
 }
+
+func constants() {
+	const tooSmallForInt32 = (-1 << 31) - 1
+	const tooBigForInt64 = 1 << 63
+}

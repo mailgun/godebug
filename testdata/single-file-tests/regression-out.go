@@ -311,6 +311,21 @@ func switchInit() {
 	_ = "the variable a should be out of scope"
 }
 
+func constants() {
+	ctx, _ok := godebug.EnterFunc(constants)
+	if !_ok {
+		return
+	}
+	defer godebug.ExitFunc(ctx)
+	godebug.Line(ctx, regression_in_go_scope, 141)
+	const tooSmallForInt32 = (-1 << 31) - 1
+	scope := regression_in_go_scope.EnteringNewChildScope()
+	scope.Constant("tooSmallForInt32", int64(tooSmallForInt32))
+	godebug.Line(ctx, scope, 142)
+	const tooBigForInt64 = 1 << 63
+	scope.Constant("tooBigForInt64", uint64(tooBigForInt64))
+}
+
 var regression_in_go_contents = `package main
 
 func main() {
@@ -448,5 +463,10 @@ func switchInit() {
 		_ = a
 	}
 	_ = "the variable a should be out of scope"
+}
+
+func constants() {
+	const tooSmallForInt32 = (-1 << 31) - 1
+	const tooBigForInt64 = 1 << 63
 }
 `
