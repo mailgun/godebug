@@ -1,0 +1,16 @@
+// Step partway through the program and then quit.
+
+-> _ = "breakpoint"
+(godebug) n
+-> x = mul(x, x)
+(godebug) x
+Invalid command. Try "help".
+(godebug) p x
+4
+(godebug) s
+-> var x int
+(godebug) p x
+x is not in scope (or is in package scope). Can't print it.
+(godebug) n
+-> for i := 0; i < m; i++ {
+(godebug) quit

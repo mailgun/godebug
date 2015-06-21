@@ -354,6 +354,7 @@ Commands:
     (c) continue: Run until the next breakpoint.
     (l) list: Show the current line in context of the code around it.
     (p) print <var>: Print a variable.
+    (q) quit: Exit the program. Uses os.Exit; deferred functions are not run.
 
 Commands may be given by their full name or by their parenthesized abbreviation.
 
@@ -393,6 +394,8 @@ func waitForInput(scope *Scope, line int) {
 		case "l", "list":
 			printContext(scope.fileText, line, 4)
 			continue
+		case "q", "quit":
+			os.Exit(0)
 		}
 		fields := strings.Fields(s)
 		if len(fields) > 0 && (fields[0] == "p" || fields[0] == "print") {
