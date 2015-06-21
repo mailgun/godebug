@@ -10,6 +10,10 @@ func (Foo) Seven() Foo {
 	return Foo(7)
 }
 
+func (_ Foo) Bar() int {
+	return 0
+}
+
 func main() {
 	Foo(3).Double()
 }

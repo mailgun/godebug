@@ -278,7 +278,7 @@ func genEnterFunc(fn *ast.FuncDecl, inputs, outputs []ast.Expr) (stmts []ast.Stm
 	// Is this a method call or a function call?
 	if fn.Recv != nil {
 		// Is the receiver named or anonymous?
-		if len(fn.Recv.List[0].Names) == 0 {
+		if len(fn.Recv.List[0].Names) == 0 || fn.Recv.List[0].Names[0].Name == "_" {
 			pseudoIdent = newSel(idents.receiver, fn.Name.Name)
 			recvType = fn.Recv.List[0].Type
 		} else {

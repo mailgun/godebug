@@ -35,12 +35,26 @@ func (Foo) Seven() Foo {
 	return Foo(7)
 }
 
+func (_ Foo) Bar() int {
+	var result1 int
+	var receiver Foo
+	ctx, ok := godebug.EnterFunc(func() {
+		result1 = receiver.Bar()
+	})
+	if !ok {
+		return result1
+	}
+	defer godebug.ExitFunc(ctx)
+	godebug.Line(ctx, method_in_go_scope, 14)
+	return 0
+}
+
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
 	if !ok {
 		return
 	}
-	godebug.Line(ctx, method_in_go_scope, 14)
+	godebug.Line(ctx, method_in_go_scope, 18)
 	Foo(3).Double()
 }
 
@@ -54,6 +68,10 @@ func (f Foo) Double() Foo {
 
 func (Foo) Seven() Foo {
 	return Foo(7)
+}
+
+func (_ Foo) Bar() int {
+	return 0
 }
 
 func main() {
