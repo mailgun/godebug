@@ -1,4 +1,5 @@
 package main
+
 import (
 	"fmt"
 )
@@ -6,8 +7,8 @@ import (
 func main() {
 	func() {
 		var (
-			x int
-			y int
+			x   int
+			y   int
 			err error
 		)
 		x = 2

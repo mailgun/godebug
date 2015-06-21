@@ -12,26 +12,26 @@ func main() {
 	if !ok {
 		return
 	}
-	godebug.Line(ctx, multiple_var_declaration_in_go_scope, 7)
+	godebug.Line(ctx, multiple_var_declaration_in_go_scope, 8)
 	func() {
 		fn := func(ctx *godebug.Context) {
-			godebug.Line(ctx, multiple_var_declaration_in_go_scope, 8)
+			godebug.Line(ctx, multiple_var_declaration_in_go_scope, 9)
 			var (
-				x int
-				y int
+				x   int
+				y   int
 				err error
 			)
 			scope := multiple_var_declaration_in_go_scope.EnteringNewChildScope()
 			scope.Declare("x", &x, "y", &y, "err", &err)
-			godebug.Line(ctx, scope, 13)
-			x = 2
 			godebug.Line(ctx, scope, 14)
-			y = 3
+			x = 2
 			godebug.Line(ctx, scope, 15)
-			err = nil
+			y = 3
 			godebug.Line(ctx, scope, 16)
+			err = nil
+			godebug.Line(ctx, scope, 17)
 			if err != nil {
-				godebug.Line(ctx, scope, 17)
+				godebug.Line(ctx, scope, 18)
 				fmt.Printf("%d\n", x+y)
 			}
 		}
@@ -43,6 +43,7 @@ func main() {
 }
 
 var multiple_var_declaration_in_go_contents = `package main
+
 import (
 	"fmt"
 )
@@ -50,8 +51,8 @@ import (
 func main() {
 	func() {
 		var (
-			x int
-			y int
+			x   int
+			y   int
 			err error
 		)
 		x = 2
@@ -61,4 +62,5 @@ func main() {
 			fmt.Printf("%d\n", x+y)
 		}
 	}()
-}`
+}
+`
