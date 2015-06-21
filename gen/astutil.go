@@ -174,6 +174,14 @@ func (eraser posEraser) Visit(node ast.Node) ast.Visitor {
 		if i.Ellipsis.IsValid() {
 			i.Ellipsis = token.Pos(1)
 		}
+	// Special case for *ast.GenDecl: the printer assumes that this is a single declaration
+	// if Lparen == token.NoPos. So use token.Pos(1) instead.
+	case *ast.GenDecl:
+		i.TokPos = token.NoPos
+		if i.Lparen.IsValid() {
+			i.Lparen = token.Pos(1)
+		}
+		i.Rparen = token.NoPos
 
 	// Zero out all other token.Pos values.
 	case *ast.ArrayType:
@@ -216,10 +224,6 @@ func (eraser posEraser) Visit(node ast.Node) ast.Visitor {
 		i.For = token.NoPos
 	case *ast.FuncType:
 		i.Func = token.NoPos
-	case *ast.GenDecl:
-		i.TokPos = token.NoPos
-		i.Lparen = token.NoPos
-		i.Rparen = token.NoPos
 	case *ast.GoStmt:
 		i.Go = token.NoPos
 	case *ast.Ident:
