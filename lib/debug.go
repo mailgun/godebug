@@ -356,7 +356,6 @@ Commands:
     (p) print <var>: Print a variable.
 
 Commands may be given by their full name or by their parenthesized abbreviation.
-Any input that is not one of the above commands is interpreted as a variable name.
 
 Pressing enter without typing anything repeats the previous command.
 `
@@ -395,10 +394,6 @@ func waitForInput(scope *Scope, line int) {
 			printContext(scope.fileText, line, 4)
 			continue
 		}
-		if v, ok := scope.getIdent(strings.TrimSpace(s)); ok {
-			fmt.Printf("%#v\n", v)
-			continue
-		}
 		fields := strings.Fields(s)
 		if len(fields) > 0 && (fields[0] == "p" || fields[0] == "print") {
 			if len(fields) == 2 {
@@ -412,7 +407,7 @@ func waitForInput(scope *Scope, line int) {
 			}
 			continue
 		}
-		fmt.Println("Command not recognized, sorry!")
+		fmt.Println(`Invalid command. Try "help".`)
 	}
 }
 

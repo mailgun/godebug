@@ -4,6 +4,10 @@
 
 -> _ = "breakpoint"
 (godebug) x
+Invalid command. Try "help".
+(godebug) 
+Invalid command. Try "help".
+(godebug) print x
 4
 (godebug) 
 4

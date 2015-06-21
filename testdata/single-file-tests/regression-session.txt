@@ -5,12 +5,12 @@
 -> default:
 (godebug) next
 -> _ = a
-(godebug) a
+(godebug) p a
 0
 (godebug) next
 -> _ = "the variable a should be out of scope"
-(godebug) a
-Command not recognized, sorry!
+(godebug) p a
+a is not in scope (or is in package scope). Can't print it.
 (godebug) continue
 hello
 test

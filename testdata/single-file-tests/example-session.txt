@@ -4,34 +4,34 @@
 (godebug) n
 -> x = mul(x, x)
 (godebug) x
-4
+Invalid command. Try "help".
 (godebug) p x
 4
 (godebug) s
 -> var x int
-(godebug) x
-Command not recognized, sorry!
 (godebug) p x
 x is not in scope (or is in package scope). Can't print it.
 (godebug) n
 -> for i := 0; i < m; i++ {
 (godebug) x
+Invalid command. Try "help".
+(godebug) p x
 0
 (godebug) i
-Command not recognized, sorry!
+Invalid command. Try "help".
 (godebug) p m
 4
 (godebug) n
 -> x = add(x, m)
-(godebug) x
+(godebug) p x
 0
-(godebug) i
+(godebug) p i
 0
-(godebug) m
+(godebug) p m
 4
 (godebug) n
 -> for i := 0; i < m; i++ {
-(godebug) x
+(godebug) p x
 4
 (godebug) p i
 1
@@ -41,11 +41,11 @@ Command not recognized, sorry!
 4
 (godebug) n
 -> x = add(x, m)
-(godebug) x
+(godebug) p x
 4
 (godebug) n
 -> for i := 0; i < m; i++ {
-(godebug) x
+(godebug) p x
 8
 (godebug) p i
 2
@@ -53,25 +53,25 @@ Command not recognized, sorry!
 -> x = add(x, m)
 (godebug) n
 -> for i := 0; i < m; i++ {
-(godebug) i
+(godebug) p i
 3
 (godebug) n
 -> x = add(x, m)
 (godebug) n
 -> for i := 0; i < m; i++ {
-(godebug) i
+(godebug) p i
 4
-(godebug) m
+(godebug) p m
 4
-(godebug) x
+(godebug) p x
 16
 (godebug) n
 -> return x
-(godebug) x
+(godebug) p x
 16
 (godebug) n
 -> if x == 4 {
-(godebug) x
+(godebug) p x
 16
 (godebug) n
 -> } else if n := 2; n == 3 {
@@ -79,7 +79,7 @@ Command not recognized, sorry!
 -> } else {
 (godebug) n
 -> fmt.Println("What's going on? x ==", x)
-(godebug) x
+(godebug) p x
 16
 (godebug) n
 What's going on? x == 16

@@ -42,14 +42,14 @@
 < All channel expressions evaluated. Choosing case to proceed. >
 -> case <-c[0]:
 (godebug) hi
-Command not recognized, sorry!
+Invalid command. Try "help".
 (godebug) n
 -> hi := "hello"
 (godebug) hi
-Command not recognized, sorry!
+Invalid command. Try "help".
 (godebug) n
 -> fmt.Println(hi)
-(godebug) hi
+(godebug) p hi
 "hello"
 (godebug) n
 hello
@@ -70,12 +70,12 @@ hello
 -> hi := "hello"
 (godebug) n
 -> fmt.Println(hi)
-(godebug) hi
+(godebug) p hi
 "hello"
 (godebug) n
 hello
 -> _ = hi
-(godebug) hi
+(godebug) p hi
 "hi"
 (godebug) n
 -> select {
@@ -89,11 +89,11 @@ hello
 -> default:
 (godebug) n
 -> hi := "hello"
-(godebug) hi
-Command not recognized, sorry!
+(godebug) p hi
+hi is not in scope (or is in package scope). Can't print it.
 (godebug) n
 -> fmt.Println(hi)
-(godebug) hi
+(godebug) p hi
 "hello"
 (godebug) n
 hello
@@ -176,14 +176,14 @@ hello
 
 (godebug) n
 -> _, _ = r2, ok
-(godebug) ok
+(godebug) p ok
 true
-(godebug) r2
+(godebug) p r2
 1
 (godebug) n
 -> c[0], c[1] = make(chan int), make(chan int) // unbuffered
-(godebug) r2
-Command not recognized, sorry!
+(godebug) p r2
+r2 is not in scope (or is in package scope). Can't print it.
 (godebug) n
 -> go func() {
 (godebug) step

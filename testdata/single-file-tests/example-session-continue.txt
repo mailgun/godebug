@@ -4,7 +4,7 @@
 (godebug) n
 -> x = mul(x, x)
 (godebug) x
-4
+Invalid command. Try "help".
 (godebug) print x
 4
 (godebug) step
@@ -12,6 +12,8 @@
 (godebug) next
 -> for i := 0; i < m; i++ {
 (godebug) x
+Invalid command. Try "help".
+(godebug) p x
 0
 (godebug) print m
 4

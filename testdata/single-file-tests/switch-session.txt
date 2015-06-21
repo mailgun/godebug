@@ -12,7 +12,7 @@ true
 -> i := 3
 (godebug) n
 -> switch i {
-(godebug) i
+(godebug) p i
 3
 (godebug) n
 -> case foo():
@@ -28,13 +28,13 @@ true
 -> var ifc interface{} = i
 (godebug) n
 -> switch ifc.(type) {
-(godebug) ifc
+(godebug) p ifc
 3
 (godebug) n
 -> switch b := 2; b == 6 {
 (godebug) n
 -> case true:
-(godebug) b
+(godebug) p b
 2
 (godebug) n
 -> case false:
