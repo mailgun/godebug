@@ -61,7 +61,7 @@ q(uit)        | exit the program
 
 ### Caveats
 
-It is not currently possible to step into standard library packages. (Issue #12)
+It is not currently possible to step into standard library packages. (Issue [#12](https://github.com/mailgun/godebug/issues/12))
 
 ### How it works (more detail)
 
