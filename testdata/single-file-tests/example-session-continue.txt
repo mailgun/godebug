@@ -5,6 +5,7 @@
 -> x = mul(x, x)
 (godebug) x
 Invalid command. Try "help".
+If you want to print the variable x, use the print command.
 (godebug) print x
 4
 (godebug) step
@@ -13,6 +14,7 @@ Invalid command. Try "help".
 -> for i := 0; i < m; i++ {
 (godebug) x
 Invalid command. Try "help".
+If you want to print the variable x, use the print command.
 (godebug) p x
 0
 (godebug) print m

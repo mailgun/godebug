@@ -5,6 +5,7 @@
 -> x = mul(x, x)
 (godebug) x
 Invalid command. Try "help".
+If you want to print the variable x, use the print command.
 (godebug) p x
 4
 (godebug) s

@@ -5,8 +5,10 @@
 -> _ = "breakpoint"
 (godebug) x
 Invalid command. Try "help".
+If you want to print the variable x, use the print command.
 (godebug) 
 Invalid command. Try "help".
+If you want to print the variable x, use the print command.
 (godebug) print x
 4
 (godebug) 

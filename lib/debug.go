@@ -411,6 +411,9 @@ func waitForInput(scope *Scope, line int) {
 			continue
 		}
 		fmt.Println(`Invalid command. Try "help".`)
+		if _, ok := scope.getIdent(strings.TrimSpace(s)); ok {
+			fmt.Printf("If you want to print the variable %s, use the print command.\n", strings.TrimSpace(s))
+		}
 	}
 }
 
