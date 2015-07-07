@@ -669,7 +669,7 @@ func createFileHook(filename, tmpDir string) *os.File {
 
 func getStdLibPkgs() map[string]bool {
 	pkgs := make(map[string]bool)
-	b, err := exec.Command("go", "list", "std").Output()
+	b, err := exec.Command("go", "list", "std").CombinedOutput()
 	if err != nil {
 		fmt.Printf("Failed to identify standard library packages. Here's the error from 'go list std':\n%s\n\nTry running again without passing \"all\" in the -instrument flag.", b)
 	}
