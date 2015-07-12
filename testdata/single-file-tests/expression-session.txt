@@ -1,0 +1,26 @@
+-> _ = "breakpoint"
+(godebug) p f.A
+12
+(godebug) p f.B
+[]string{"hello", "world"}
+(godebug) p f.B[0]
+"hello"
+(godebug) p "hi"
+"hi"
+(godebug) p true
+true
+(godebug) p 2 + 2
+4
+(godebug) p f.A + 2
+14
+(godebug) p f.B[3]
+panic (recovered): runtime error: index out of range
+(godebug) p f.A[2]
+invalid operation: f.A[2] (index of type int)
+(godebug) p c
+42
+(godebug) p v
+[]int{1, 2, 3}
+(godebug) p plusTwo(4)
+6, "done"
+(godebug) quit

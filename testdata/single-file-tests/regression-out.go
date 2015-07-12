@@ -2,7 +2,7 @@ package main
 
 import "github.com/mailgun/godebug/lib"
 
-var regression_in_go_scope = godebug.EnteringNewScope(regression_in_go_contents)
+var regression_in_go_scope = godebug.EnteringNewFile(main_pkg_scope, regression_in_go_contents)
 
 func main() {
 	ctx, _ok := godebug.EnterFunc(main)
@@ -470,3 +470,28 @@ func constants() {
 	const tooBigForInt64 = 1 << 63
 }
 `
+
+
+var main_pkg_scope = &godebug.Scope{}
+
+func init() {
+	main_pkg_scope.Vars = map[string]interface{}{
+		"nestedSwitch": &nestedSwitch,
+		
+	}
+	main_pkg_scope.Consts = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Funcs = map[string]interface{}{
+		"main": main,
+		"_switch": _switch,
+		"_select": _select,
+		"name1": name1,
+		"name2": name2,
+		"doFallthrough": doFallthrough,
+		"a": a,
+		"switchInit": switchInit,
+		"constants": constants,
+		
+	}
+}

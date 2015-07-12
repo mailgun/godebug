@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"text/template"
 	"unicode"
 
 	"github.com/mailgun/godebug/Godeps/_workspace/src/golang.org/x/tools/go/ast/astutil"
@@ -46,7 +47,8 @@ func Generate(prog *loader.Program, getFileBytes func(string) ([]byte, error), w
 			// EXTERNAL TEST package, strip the _test to find the path
 			path = strings.TrimSuffix(pkg.Path(), "_test")
 		}
-		for _, f := range pkgInfo.Files {
+		idents.pkgScope = generatePackageScopeIdent(pkgInfo)
+		for i, f := range pkgInfo.Files {
 			fs = prog.Fset
 			fname := fs.Position(f.Pos()).Filename
 			if strings.HasSuffix(fname, "/C") {
@@ -76,8 +78,68 @@ func Generate(prog *loader.Program, getFileBytes func(string) ([]byte, error), w
 			defer out.Close()
 			_ = cfg.Fprint(out, fs, f)
 			fmt.Fprintln(out, "\nvar", idents.fileContents, "=", quotedContents)
+			if i == 0 {
+				err := generatePackageFile(idents.pkgScope, pkgInfo, out)
+				if err != nil {
+					fmt.Fprint(os.Stderr, "Error writing package file:", err)
+					os.Exit(1)
+				}
+			}
 		}
 	}
+}
+
+var packageFileTmpl = template.Must(template.New("").Parse(
+	`
+
+var {{.Scope}} = &{{.Godebug}}.Scope{}
+
+func init() {
+	{{.Scope}}.Vars = map[string]interface{}{
+		{{range .Vars}}"{{.}}": &{{.}},
+		{{end}}
+	}
+	{{.Scope}}.Consts = map[string]interface{}{
+		{{range .Consts}}"{{.}}": {{.}},
+		{{end}}
+	}
+	{{.Scope}}.Funcs = map[string]interface{}{
+		{{range .Funcs}}"{{.}}": {{.}},
+		{{end}}
+	}
+}`))
+
+func generatePackageFile(scope string, pkg *loader.PackageInfo, w io.Writer) error {
+	data := struct {
+		Package, Scope, Godebug string
+		Vars, Consts, Funcs     []string
+	}{
+		Godebug: idents.godebug,
+		Package: pkg.Pkg.Name(),
+		Scope:   scope,
+	}
+	for _, f := range pkg.Files {
+		for _, decl := range f.Decls {
+			switch d := decl.(type) {
+			case *ast.FuncDecl:
+				if d.Recv == nil && d.Name.Name != "init" {
+					data.Funcs = append(data.Funcs, d.Name.Name)
+				}
+			case *ast.GenDecl:
+				switch d.Tok {
+				case token.VAR:
+					for _, ident := range listNewIdentsFromDecl(d) {
+						data.Vars = append(data.Vars, ident.Name)
+					}
+				case token.CONST:
+					for _, ident := range listNewIdentsFromDecl(d) {
+						data.Consts = append(data.Consts, ident.Name)
+					}
+				}
+			}
+		}
+	}
+	return packageFileTmpl.Execute(w, data)
 }
 
 func varDecl(specs ...ast.Spec) ast.Decl {
@@ -504,7 +566,7 @@ func (v *visitor) finalizeNode() {
 		}
 		newDecls = append(newDecls, varDecl(&ast.ValueSpec{
 			Names:  []*ast.Ident{ast.NewIdent(idents.fileScope)},
-			Values: []ast.Expr{newCall(idents.godebug, "EnteringNewScope", ast.NewIdent(idents.fileContents))},
+			Values: []ast.Expr{newCall(idents.godebug, "EnteringNewFile", ast.NewIdent(idents.pkgScope), ast.NewIdent(idents.fileContents))},
 		}))
 		i.Decls = append(newDecls, i.Decls...)
 	}
@@ -803,7 +865,7 @@ func (v *visitor) createScope() {
 }
 
 var idents struct {
-	ctx, ok, scope, receiver, fileScope, fileContents, godebug, result, input, recoverChan, recoverChanChan, recovers, panicVal, panicChan string
+	ctx, ok, pkgScope, scope, receiver, fileScope, fileContents, godebug, result, input, recoverChan, recoverChanChan, recovers, panicVal, panicChan string
 }
 
 func generateGodebugPkgName(f *ast.File) string {
@@ -824,6 +886,18 @@ func generateGodebugPkgName(f *ast.File) string {
 		pkgName = createConflictFreeName("godebug", f, false)
 	}
 	return pkgName
+}
+
+func generatePackageScopeIdent(pkg *loader.PackageInfo) string {
+	v := &nameVisitor{
+		base:      pkg.Pkg.Name() + "_pkg_scope",
+		suffix:    false,
+		conflicts: make(map[string]bool),
+	}
+	for _, f := range pkg.Files {
+		ast.Walk(v, f)
+	}
+	return v.getName()
 }
 
 func generateGodebugIdentifiers(f *ast.File) {

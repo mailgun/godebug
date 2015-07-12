@@ -5,7 +5,7 @@ import (
 	"github.com/mailgun/godebug/lib"
 )
 
-var select_in_go_scope = godebug.EnteringNewScope(select_in_go_contents)
+var select_in_go_scope = godebug.EnteringNewFile(main_pkg_scope, select_in_go_contents)
 
 func foo() chan int {
 	var result1 chan int
@@ -476,3 +476,21 @@ func main() {
 	}
 }
 `
+
+
+var main_pkg_scope = &godebug.Scope{}
+
+func init() {
+	main_pkg_scope.Vars = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Consts = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Funcs = map[string]interface{}{
+		"foo": foo,
+		"bar": bar,
+		"main": main,
+		
+	}
+}

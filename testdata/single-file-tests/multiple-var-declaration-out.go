@@ -5,7 +5,7 @@ import (
 	"github.com/mailgun/godebug/lib"
 )
 
-var multiple_var_declaration_in_go_scope = godebug.EnteringNewScope(multiple_var_declaration_in_go_contents)
+var multiple_var_declaration_in_go_scope = godebug.EnteringNewFile(main_pkg_scope, multiple_var_declaration_in_go_contents)
 
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
@@ -64,3 +64,19 @@ func main() {
 	}()
 }
 `
+
+
+var main_pkg_scope = &godebug.Scope{}
+
+func init() {
+	main_pkg_scope.Vars = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Consts = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Funcs = map[string]interface{}{
+		"main": main,
+		
+	}
+}

@@ -5,7 +5,7 @@ import (
 	"github.com/mailgun/godebug/lib"
 )
 
-var example_in_go_scope = godebug.EnteringNewScope(example_in_go_contents)
+var example_in_go_scope = godebug.EnteringNewFile(main_pkg_scope, example_in_go_contents)
 
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
@@ -128,3 +128,21 @@ func mul(n, m int) int {
 	return x
 }
 `
+
+
+var main_pkg_scope = &godebug.Scope{}
+
+func init() {
+	main_pkg_scope.Vars = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Consts = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Funcs = map[string]interface{}{
+		"main": main,
+		"add": add,
+		"mul": mul,
+		
+	}
+}

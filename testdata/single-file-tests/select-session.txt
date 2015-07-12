@@ -90,7 +90,7 @@ hello
 (godebug) n
 -> hi := "hello"
 (godebug) p hi
-hi is not in scope (or is in package scope). Can't print it.
+undefined: hi
 (godebug) n
 -> fmt.Println(hi)
 (godebug) p hi
@@ -183,7 +183,7 @@ true
 (godebug) n
 -> c[0], c[1] = make(chan int), make(chan int) // unbuffered
 (godebug) p r2
-r2 is not in scope (or is in package scope). Can't print it.
+undefined: r2
 (godebug) n
 -> go func() {
 (godebug) step

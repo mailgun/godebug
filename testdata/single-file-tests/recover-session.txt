@@ -20,11 +20,11 @@
 (godebug) s
 -> if r := recover(); r == nil {
 (godebug) p r
-r is not in scope (or is in package scope). Can't print it.
+undefined: r
 (godebug) n
 -> if r := recover(); r != nil {
 (godebug) p r
-r is not in scope (or is in package scope). Can't print it.
+undefined: r
 (godebug) n
 -> doPanic(r3)
 (godebug) s
@@ -46,11 +46,11 @@ r is not in scope (or is in package scope). Can't print it.
 (godebug) s
 -> if r := recover(); r == nil {
 (godebug) p r
-r is not in scope (or is in package scope). Can't print it.
+undefined: r
 (godebug) n
 -> if r := recover(); r != nil {
 (godebug) p r
-r is not in scope (or is in package scope). Can't print it.
+undefined: r
 (godebug) n
 -> doNestedRecover(r1)
 (godebug) s

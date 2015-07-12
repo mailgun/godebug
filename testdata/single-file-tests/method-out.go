@@ -2,7 +2,7 @@ package main
 
 import "github.com/mailgun/godebug/lib"
 
-var method_in_go_scope = godebug.EnteringNewScope(method_in_go_contents)
+var method_in_go_scope = godebug.EnteringNewFile(main_pkg_scope, method_in_go_contents)
 
 type Foo int
 
@@ -78,3 +78,19 @@ func main() {
 	Foo(3).Double()
 }
 `
+
+
+var main_pkg_scope = &godebug.Scope{}
+
+func init() {
+	main_pkg_scope.Vars = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Consts = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Funcs = map[string]interface{}{
+		"main": main,
+		
+	}
+}

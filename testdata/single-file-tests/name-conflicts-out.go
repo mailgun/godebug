@@ -5,7 +5,7 @@ import (
 	_godebug "github.com/mailgun/godebug/lib"
 )
 
-var name_conflicts_in_go_scope = _godebug.EnteringNewScope(name_conflicts_in_go_contents)
+var name_conflicts_in_go_scope = _godebug.EnteringNewFile(main_pkg_scope, name_conflicts_in_go_contents)
 
 type Foo int
 
@@ -106,3 +106,21 @@ func main() {
 	godebug.Println(foo)
 }
 `
+
+
+var main_pkg_scope = &_godebug.Scope{}
+
+func init() {
+	main_pkg_scope.Vars = map[string]interface{}{
+		"f": &f,
+		"_scope": &_scope,
+		
+	}
+	main_pkg_scope.Consts = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Funcs = map[string]interface{}{
+		"main": main,
+		
+	}
+}

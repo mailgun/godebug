@@ -2,7 +2,7 @@ package main
 
 import "github.com/mailgun/godebug/lib"
 
-var struct_in_go_scope = godebug.EnteringNewScope(struct_in_go_contents)
+var struct_in_go_scope = godebug.EnteringNewFile(main_pkg_scope, struct_in_go_contents)
 
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
@@ -41,3 +41,19 @@ func main() {
 	_ = v
 }
 `
+
+
+var main_pkg_scope = &godebug.Scope{}
+
+func init() {
+	main_pkg_scope.Vars = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Consts = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Funcs = map[string]interface{}{
+		"main": main,
+		
+	}
+}

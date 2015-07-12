@@ -5,7 +5,7 @@ import (
 	"github.com/mailgun/godebug/lib"
 )
 
-var func_lit_in_go_scope = godebug.EnteringNewScope(func_lit_in_go_contents)
+var func_lit_in_go_scope = godebug.EnteringNewFile(main_pkg_scope, func_lit_in_go_contents)
 
 func main() {
 	ctx, ok := godebug.EnterFunc(main)
@@ -68,3 +68,21 @@ var bar = func() {
 	fmt.Println("No inputs or outputs")
 }
 `
+
+
+var main_pkg_scope = &godebug.Scope{}
+
+func init() {
+	main_pkg_scope.Vars = map[string]interface{}{
+		"foo": &foo,
+		"bar": &bar,
+		
+	}
+	main_pkg_scope.Consts = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Funcs = map[string]interface{}{
+		"main": main,
+		
+	}
+}

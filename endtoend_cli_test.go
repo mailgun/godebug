@@ -41,12 +41,18 @@ func TestCLISessions(t *testing.T) {
 
 	// Run tests in parallel
 	var wg sync.WaitGroup
+	// If we run too many tests at once we can exceed our file descriptor limit.
+	lim := make(chan bool, 40)
 	for _, test := range tests {
 		for _, tt := range parseCases(t, filepath.Join("testdata", test)) {
 			s := parseSessionFromBytes([]byte(tt.Transcript))
 			for i := range tt.Invocations {
 				wg.Add(1)
+				lim <- true
 				go func(filename string, s *session, tt testCase, i int) {
+					defer func() {
+						<-lim
+					}()
 					defer wg.Done()
 					runTest(t, godebug, filename, tt, i, s)
 				}(test, s, tt, i)

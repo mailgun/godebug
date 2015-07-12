@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/mailgun/godebug",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.4.1",
 	"Packages": [
 		"./..."
 	],
@@ -8,6 +8,10 @@
 		{
 			"ImportPath": "bitbucket.org/JeremySchlatter/go-atexit",
 			"Rev": "4d24881b3b10dc2e60d3e6b3b6fce38d3bda546d"
+		},
+		{
+			"ImportPath": "github.com/0xfaded/eval",
+			"Rev": "d7460625a04165fdb12302d5b278d9c27ddbaa93"
 		},
 		{
 			"ImportPath": "github.com/jtolds/gls",

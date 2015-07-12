@@ -1,0 +1,241 @@
+package eval
+
+import (
+	"reflect"
+	"go/ast"
+	"go/token"
+)
+
+func checkCallExpr(call *ast.CallExpr, env Env) (acall *CallExpr, errs []error) {
+	acall = &CallExpr{CallExpr: call}
+
+	// First check for builtin calls. For new and make, the first argument is
+	// a type, not a value. Therefore, allow the builtin checks to recursively
+	// check their arguments
+	if call, errs, isBuiltin := checkCallBuiltinExpr(acall, env); isBuiltin {
+		return call, errs
+	}
+
+	// Recursively check arguments
+	var moreErrs []error
+	if call.Args != nil {
+		acall.Args = make([]Expr, len(call.Args))
+	}
+	for i, arg := range call.Args {
+		if acall.Args[i], moreErrs = CheckExpr(arg, env); moreErrs != nil {
+			errs = append(errs, moreErrs...)
+		}
+	}
+
+	// First check if this expression is a type cast
+	// Otherwise, assume a function call
+	if typ, to, isType, moreErrs := checkType(call.Fun, env); isType {
+		if moreErrs != nil {
+			return acall, append(errs, moreErrs...)
+		}
+		acall.Fun = typ
+		return checkCallTypeExpr(acall, to, env)
+	} else {
+		return checkCallFunExpr(acall, env)
+	}
+}
+
+func checkCallTypeExpr(call *CallExpr, to reflect.Type, env Env) (acall *CallExpr, errs []error) {
+	call.knownType = []reflect.Type{to}
+	call.isTypeConversion = true
+
+	if len(call.Args) != 1 {
+		return call, []error{ErrWrongNumberOfArgs{call, len(call.Args)}}
+	}
+
+	arg := call.Args[0]
+	from, err := expectSingleType(arg)
+	if err != nil {
+		return call, []error{err}
+	}
+
+	if ct, ok := from.(ConstType); ok {
+		// For bad constant conversions, gc produces two error
+		// messages. E.g. string to uint64 cannot convert "abc"
+		// to type uint64 cannot convert "abc" (type string) to
+		// type uint64
+		//
+		// I've separated these into ErrBadConstConversiond and
+		// ErrBadConversion The exception is if the conversion
+		// is from nil
+		v, errs := castConstToTyped(ct, constValue(arg.Const()), to, arg)
+		if ct != ConstNil {
+			if errs != nil {
+				if b, ok := errs[0].(ErrBadConstConversion); ok {
+					errs = append(errs, ErrBadConversion{b.Expr, b.from, b.to})
+				}
+				// Some expr nodes will continue to generate
+				// errors even if their children produce
+				// errors. constValue must be set for this to
+				// happen.
+				call.constValue = constValue(arg.Const())
+			} else {
+				call.constValue = v
+			}
+		}
+		return call, errs
+	} else {
+		if from.ConvertibleTo(to) {
+			if arg.IsConst() {
+				call.constValue = constValue(arg.Const().Convert(to))
+			}
+			return call, nil
+		} else {
+			return call, []error{ErrBadConstConversion{call, from, to}}
+		}
+	}
+}
+
+func checkCallFunExpr(call *CallExpr, env Env) (*CallExpr, []error) {
+	fun, errs := CheckExpr(call.CallExpr.Fun, env)
+	if errs != nil && !fun.IsConst() {
+		return call, errs
+	}
+	call.Fun = fun
+
+	ftype, err := expectSingleType(fun)
+	if err != nil {
+		return call, append(errs, err)
+	// catch nil casts, e.g. nil(1)
+	} else if ftype == ConstNil {
+		return call, []error{ErrUntypedNil{fun}}
+	} else if ftype.Kind() != reflect.Func {
+		return call, []error{ErrCallNonFuncType{fun}}
+	}
+
+	call.knownType = make([]reflect.Type, ftype.NumOut())
+	for i := range call.knownType {
+		call.knownType[i] = ftype.Out(i)
+	}
+
+	// Some handly values
+	variadic := ftype.IsVariadic()
+	numIn := ftype.NumIn()
+
+	// Special case handling doesn't play well with nil Args. Handle zero arg
+	// functions first.
+	if call.Args == nil {
+		if numIn == 0 || (variadic && numIn == 1) {
+			return call, nil
+		} else {
+			return call, []error{ErrWrongNumberOfArgs{call, len(call.Args)}}
+		}
+	}
+
+	// Special case for f(g()), where g may return multiple values
+	// The only way to verify that the multi-valued type of Args[0] arose
+	// from function call is to dig through any ParenExpr and see if at
+	// the bottom is another CallExpr
+	arg0MultiValued := false
+	arg0 := call.Args[0]
+	arg0T := arg0.KnownType()
+	if len(call.Args) == 1 && len(arg0T) > 1 {
+		arg0 := call.Args[0]
+		arg0 = skipSuperfluousParens(arg0)
+		if _, ok := arg0.(*CallExpr); ok {
+			arg0MultiValued = true
+		}
+	}
+
+
+	call.arg0MultiValued = arg0MultiValued
+	if arg0MultiValued {
+		// Check all but the last arg which will be handled specially
+		var i int
+		for i = 0; i < len(arg0T) && i < numIn-1; i += 1 {
+			if !typeAssignableTo(arg0T[i], ftype.In(i)) {
+				errs = append(errs, ErrWrongArgType{arg0, call, i})
+			}
+		}
+
+		var argNT reflect.Type
+		// Detect wrong number of args
+		if !variadic {
+			if len(arg0T) != numIn {
+				return call, append(errs, ErrWrongNumberOfArgs{call, len(arg0T)})
+			}
+			argNT = ftype.In(i)
+		} else {
+			if len(arg0T) < numIn - 1 {
+				return call, append(errs, ErrWrongNumberOfArgs{call, len(arg0T)})
+			}
+			argNT = ftype.In(i).Elem()
+		}
+
+		// Check remaining args
+		for ; i < len(arg0T); i += 1 {
+			if !typeAssignableTo(arg0T[i], argNT) {
+				errs = append(errs, ErrWrongArgType{arg0, call, i})
+			}
+		}
+	} else {
+		argNEllipsis := call.Ellipsis != token.NoPos
+		call.argNEllipsis = argNEllipsis
+
+		// To match errors generated by gc, first check that all arguments are single
+		// values. Proceed with type checking. In both cases, ErrWrongNumberOfArgs
+		// must be considered last.
+		skipTypeCheck := make([]bool, len(call.Args))
+		for i, arg := range call.Args {
+			expr := arg
+			if _, err := expectSingleType(expr); err != nil {
+				errs = append(errs, err)
+				skipTypeCheck[i] = true
+			}
+		}
+
+		// Check all but the last arg which will be handled specially
+		var i int
+		for i = 0; i < len(call.Args) && i < numIn-1; i += 1 {
+			if skipTypeCheck[i] {
+				continue
+			}
+			expr := call.Args[i]
+			if ok, convErrs := exprAssignableTo(expr, ftype.In(i)); ok {
+				errs = append(errs, convErrs...)
+			} else {
+				errs = append(errs, ErrWrongArgType{expr, call, i})
+			}
+		}
+
+		var argNT reflect.Type
+		if !variadic || argNEllipsis {
+			if len(call.Args) != numIn {
+				return call, append(errs, ErrWrongNumberOfArgs{call, len(call.Args)})
+			}
+			argNT = ftype.In(numIn - 1)
+		} else {
+			if len(call.Args) < numIn - 1 {
+				return call, append(errs, ErrWrongNumberOfArgs{call, len(call.Args)})
+			} else if len(call.Args) == numIn - 1 {
+				// Variadic function with no ... args
+				return call, errs
+			}
+			argNT = ftype.In(numIn - 1).Elem()
+		}
+
+		// Check remaining args
+		for ; i < len(call.Args); i += 1 {
+			if skipTypeCheck[i] {
+				continue
+			}
+			expr := call.Args[i]
+			if ok, convErrs := exprAssignableTo(expr, argNT); ok {
+				errs = append(errs, convErrs...)
+			} else {
+				errs = append(errs, ErrWrongArgType{expr, call, i})
+			}
+		}
+
+		// Finally, check for illegal use of the ellipsis
+		if !variadic && argNEllipsis {
+			errs = append(errs, ErrInvalidEllipsisInCall{call})
+		}
+	}
+	return call, errs
+}

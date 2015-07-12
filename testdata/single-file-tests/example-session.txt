@@ -11,7 +11,7 @@ If you want to print the variable x, use the print command.
 (godebug) s
 -> var x int
 (godebug) p x
-x is not in scope (or is in package scope). Can't print it.
+undefined: x
 (godebug) n
 -> for i := 0; i < m; i++ {
 (godebug) x

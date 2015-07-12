@@ -49,15 +49,15 @@ That's it. See 'godebug help' for the full usage.
 
 The current commands are:
 
-command       | result
---------------|------------------------
-h(elp)        | show help message
-n(ext)        | run the next line
-s(tep)        | run for one step
-c(ontinue)    | run until the next breakpoint
-l(ist)        | show the current line in context of the code around it
-p(rint) [var] | print a variable
-q(uit)        | exit the program
+command              | result
+---------------------|------------------------
+h(elp)               | show help message
+n(ext)               | run the next line
+s(tep)               | run for one step
+c(ontinue)           | run until the next breakpoint
+l(ist)               | show the current line in context of the code around it
+p(rint) [expression] | print a variable or any other Go expression
+q(uit)               | exit the program
 
 ### Caveats
 

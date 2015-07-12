@@ -2,7 +2,7 @@ package main
 
 import "github.com/mailgun/godebug/lib"
 
-var variadic_in_go_scope = godebug.EnteringNewScope(variadic_in_go_contents)
+var variadic_in_go_scope = godebug.EnteringNewFile(main_pkg_scope, variadic_in_go_contents)
 
 func Varargs(i ...int) int {
 	var result1 int
@@ -38,3 +38,20 @@ func main() {
 	Varargs(1, 2, 3, 4)
 }
 `
+
+
+var main_pkg_scope = &godebug.Scope{}
+
+func init() {
+	main_pkg_scope.Vars = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Consts = map[string]interface{}{
+		
+	}
+	main_pkg_scope.Funcs = map[string]interface{}{
+		"Varargs": Varargs,
+		"main": main,
+		
+	}
+}
