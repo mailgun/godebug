@@ -283,10 +283,6 @@ func a() int {
 	return 0
 }
 
-func init() {
-	switchInit()
-}
-
 func switchInit() {
 	ctx, _ok := godebug.EnterFunc(switchInit)
 	if !_ok {
@@ -294,20 +290,20 @@ func switchInit() {
 	}
 	defer godebug.ExitFunc(ctx)
 	godebug.SetTraceGen(ctx)
-	godebug.Line(ctx, regression_in_go_scope, 132)
+	godebug.Line(ctx, regression_in_go_scope, 128)
 	{
-		godebug.Line(ctx, regression_in_go_scope, 133)
+		godebug.Line(ctx, regression_in_go_scope, 129)
 		a := a()
 		scope := regression_in_go_scope.EnteringNewChildScope()
 		scope.Declare("a", &a)
 		switch {
 		default:
-			godebug.Line(ctx, scope, 134)
-			godebug.Line(ctx, scope, 135)
+			godebug.Line(ctx, scope, 130)
+			godebug.Line(ctx, scope, 131)
 			_ = a
 		}
 	}
-	godebug.Line(ctx, regression_in_go_scope, 137)
+	godebug.Line(ctx, regression_in_go_scope, 133)
 	_ = "the variable a should be out of scope"
 }
 
@@ -317,13 +313,35 @@ func constants() {
 		return
 	}
 	defer godebug.ExitFunc(ctx)
-	godebug.Line(ctx, regression_in_go_scope, 141)
+	godebug.Line(ctx, regression_in_go_scope, 137)
 	const tooSmallForInt32 = (-1 << 31) - 1
 	scope := regression_in_go_scope.EnteringNewChildScope()
 	scope.Constant("tooSmallForInt32", int64(tooSmallForInt32))
-	godebug.Line(ctx, scope, 142)
+	godebug.Line(ctx, scope, 138)
 	const tooBigForInt64 = 1 << 63
 	scope.Constant("tooBigForInt64", uint64(tooBigForInt64))
+}
+
+func unexportedField() {
+	ctx, _ok := godebug.EnterFunc(unexportedField)
+	if !_ok {
+		return
+	}
+	defer godebug.ExitFunc(ctx)
+	godebug.Line(ctx, regression_in_go_scope, 142)
+	var f struct{ bar int }
+	scope := regression_in_go_scope.EnteringNewChildScope()
+	scope.Declare("f", &f)
+	godebug.Line(ctx, scope, 143)
+	f.bar = 5
+	godebug.SetTraceGen(ctx)
+	godebug.Line(ctx, scope, 144)
+
+}
+
+func init() {
+	switchInit()
+	unexportedField()
 }
 
 var regression_in_go_contents = `package main
@@ -451,10 +469,6 @@ func a() int {
 	return 0
 }
 
-func init() {
-	switchInit()
-}
-
 // Don't repeat switch initialization, use correct scope inside switch.
 func switchInit() {
 	_ = "breakpoint"
@@ -468,6 +482,17 @@ func switchInit() {
 func constants() {
 	const tooSmallForInt32 = (-1 << 31) - 1
 	const tooBigForInt64 = 1 << 63
+}
+
+func unexportedField() {
+	var f struct{ bar int }
+	f.bar = 5
+	_ = "breakpoint"
+}
+
+func init() {
+	switchInit()
+	unexportedField()
 }
 `
 
@@ -492,6 +517,7 @@ func init() {
 		"a": a,
 		"switchInit": switchInit,
 		"constants": constants,
+		"unexportedField": unexportedField,
 		
 	}
 }

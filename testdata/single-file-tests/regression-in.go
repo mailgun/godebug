@@ -123,10 +123,6 @@ func a() int {
 	return 0
 }
 
-func init() {
-	switchInit()
-}
-
 // Don't repeat switch initialization, use correct scope inside switch.
 func switchInit() {
 	_ = "breakpoint"
@@ -140,4 +136,15 @@ func switchInit() {
 func constants() {
 	const tooSmallForInt32 = (-1 << 31) - 1
 	const tooBigForInt64 = 1 << 63
+}
+
+func unexportedField() {
+	var f struct{ bar int }
+	f.bar = 5
+	_ = "breakpoint"
+}
+
+func init() {
+	switchInit()
+	unexportedField()
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"unicode"
+	"unsafe"
 
 	"github.com/mailgun/godebug/Godeps/_workspace/src/github.com/0xfaded/eval"
 )
@@ -334,6 +335,13 @@ func waitForInput(scope *Scope, line int) {
 				default:
 					s := make([]string, len(results))
 					for i, r := range results {
+						if !r.CanInterface() {
+							if r.CanAddr() {
+								r = reflect.NewAt(r.Type(), unsafe.Pointer(r.UnsafeAddr())).Elem()
+							} else {
+								s[i] = fmt.Sprintf("godebug cannot access this field or method. Sorry! Let us know about it at github.com/mailgun/godebug/issues/new and we'll fix it")
+							}
+						}
 						ifc := r.Interface()
 						if _, ok := ifc.(*eval.ConstNumber); ok {
 							s[i] = fmt.Sprintf("%v", ifc)
@@ -357,10 +365,16 @@ func waitForInput(scope *Scope, line int) {
 
 // goEval runs eval.EvalEnv in a new goroutine. This is a quick hack to
 // keep the debugger from pausing while running eval.EvalEnv.
+// It is also used to recover from panics in the eval library.
 func goEval(expr string, env eval.Env) (result []reflect.Value, panik error, compileErrors []error) {
 	c := make(chan struct{})
 	go func() {
-		defer close(c)
+		defer func() {
+			if r := recover(); r != nil {
+				panik = fmt.Errorf("%v", r)
+			}
+			close(c)
+		}()
 		result, panik, compileErrors = eval.EvalEnv(expr, env)
 	}()
 	<-c

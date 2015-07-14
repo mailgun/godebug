@@ -12,6 +12,10 @@
 (godebug) p a
 undefined: a
 (godebug) continue
+-> _ = "breakpoint"
+(godebug) p f.bar
+5
+(godebug) continue
 hello
 test
 -> _ = "breakpoint"
