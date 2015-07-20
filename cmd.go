@@ -668,12 +668,18 @@ func createFileHook(filename, tmpDir string) *os.File {
 }
 
 func getStdLibPkgs() map[string]bool {
-	pkgs := make(map[string]bool)
-	b, err := exec.Command("go", "list", "std").CombinedOutput()
-	if err != nil {
-		fmt.Printf("Failed to identify standard library packages. Here's the error from 'go list std':\n%s\n\nTry running again without passing \"all\" in the -instrument flag.", b)
+	var (
+		pkgs   = make(map[string]bool)
+		cmd    = exec.Command("go", "list", "std")
+		stdout = bytes.NewBuffer(nil)
+		stderr = bytes.NewBuffer(nil)
+	)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to identify standard library packages. godebug should still work, but instrumentation might take longer.\nHere's the error from running 'go list std':\n%s\n", stderr.Bytes())
 	}
-	b = bytes.TrimSpace(b)
+	b := bytes.TrimSpace(stdout.Bytes())
 	for _, pkg := range bytes.Split(b, []byte{'\n'}) {
 		pkgs[string(pkg)] = true
 	}
