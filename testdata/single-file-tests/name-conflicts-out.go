@@ -114,13 +114,10 @@ func init() {
 	main_pkg_scope.Vars = map[string]interface{}{
 		"f": &f,
 		"_scope": &_scope,
-		
 	}
 	main_pkg_scope.Consts = map[string]interface{}{
-		
 	}
 	main_pkg_scope.Funcs = map[string]interface{}{
 		"main": main,
-		
 	}
 }

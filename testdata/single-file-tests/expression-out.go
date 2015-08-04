@@ -80,15 +80,12 @@ var main_pkg_scope = &godebug.Scope{}
 func init() {
 	main_pkg_scope.Vars = map[string]interface{}{
 		"v": &v,
-		
 	}
 	main_pkg_scope.Consts = map[string]interface{}{
 		"c": c,
-		
 	}
 	main_pkg_scope.Funcs = map[string]interface{}{
 		"plusTwo": plusTwo,
 		"main": main,
-		
 	}
 }

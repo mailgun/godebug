@@ -502,10 +502,8 @@ var main_pkg_scope = &godebug.Scope{}
 func init() {
 	main_pkg_scope.Vars = map[string]interface{}{
 		"nestedSwitch": &nestedSwitch,
-		
 	}
 	main_pkg_scope.Consts = map[string]interface{}{
-		
 	}
 	main_pkg_scope.Funcs = map[string]interface{}{
 		"main": main,
@@ -518,6 +516,5 @@ func init() {
 		"switchInit": switchInit,
 		"constants": constants,
 		"unexportedField": unexportedField,
-		
 	}
 }

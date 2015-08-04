@@ -89,23 +89,20 @@ func Generate(prog *loader.Program, getFileBytes func(string) ([]byte, error), w
 	}
 }
 
-var packageFileTmpl = template.Must(template.New("").Parse(
+var packageFileTmpl = template.Must(template.New("").Delims("<", ">").Parse(
 	`
 
-var {{.Scope}} = &{{.Godebug}}.Scope{}
+var <.Scope> = &<.Godebug>.Scope{}
 
 func init() {
-	{{.Scope}}.Vars = map[string]interface{}{
-		{{range .Vars}}"{{.}}": &{{.}},
-		{{end}}
+	<.Scope>.Vars = map[string]interface{}{<range .Vars>
+		"<.>": &<.>,<end>
 	}
-	{{.Scope}}.Consts = map[string]interface{}{
-		{{range .Consts}}"{{.}}": {{.}},
-		{{end}}
+	<.Scope>.Consts = map[string]interface{}{<range .Consts>
+		"<.>": <.>,<end>
 	}
-	{{.Scope}}.Funcs = map[string]interface{}{
-		{{range .Funcs}}"{{.}}": {{.}},
-		{{end}}
+	<.Scope>.Funcs = map[string]interface{}{<range .Funcs>
+		"<.>": <.>,<end>
 	}
 }`))
 

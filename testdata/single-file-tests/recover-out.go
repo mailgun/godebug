@@ -324,10 +324,8 @@ func init() {
 	main_pkg_scope.Vars = map[string]interface{}{
 		"r3": &r3,
 		"r4": &r4,
-		
 	}
 	main_pkg_scope.Consts = map[string]interface{}{
-		
 	}
 	main_pkg_scope.Funcs = map[string]interface{}{
 		"r1": r1,
@@ -338,6 +336,5 @@ func init() {
 		"recovererWithParams": recovererWithParams,
 		"doNestedPanic": doNestedPanic,
 		"recoverThenPanic": recoverThenPanic,
-		
 	}
 }
