@@ -96,6 +96,9 @@ func TestUpdatedSource(t *testing.T) {
 	copyFiles(t,
 		filepath.Join(tmpDir, "src", "github.com", "mailgun", "godebug", "Godeps", "_workspace", "src", "github.com", "0xfaded", "eval"),
 		filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "mailgun", "godebug", "Godeps", "_workspace", "src", "github.com", "0xfaded", "eval"))
+	copyFiles(t,
+		filepath.Join(tmpDir, "src", "github.com", "mailgun", "godebug", "Godeps", "_workspace", "src", "github.com", "peterh", "liner"),
+		filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "mailgun", "godebug", "Godeps", "_workspace", "src", "github.com", "peterh", "liner"))
 
 	// Install the first version of foo.
 	cmd := exec.Command("go", "install", "foo")

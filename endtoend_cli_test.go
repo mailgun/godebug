@@ -96,14 +96,12 @@ func parseCases(t *testing.T, filename string) []testCase {
 }
 
 func runTest(t *testing.T, godebug, filename string, tt testCase, i int, session *session) {
-	var buf bytes.Buffer
 	command, dir := tt.Invocations[i].Cmd, tt.Invocations[i].Dir
 	cmd := exec.Command(godebug, strings.Split(command, " ")[1:]...)
 	cmd.Dir = filepath.FromSlash("testdata/test-filesystem/" + dir)
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-	cmd.Stdin = bytes.NewReader(session.input)
 	setTestGopath(t, cmd)
+	cmd.Env = append(cmd.Env, logFileEnvVar+"=true")
+	b, err := runGodebugSession(cmd, session)
 
 	// Show multiple errors if they exist and format them nicely.
 	var errs []string
@@ -114,12 +112,10 @@ func runTest(t *testing.T, godebug, filename string, tt testCase, i int, session
 		}
 	}()
 
-	cmd.Env = append(cmd.Env, logFileEnvVar+"=true")
-	err := cmd.Run()
 	// Because we set `logFileEnvVar` above, godebug will print the
 	// files it creates to stdout. Parse those lines and then pretend
 	// they were not printed.
-	createdFiles, output := recordCreatedFiles(buf.Bytes())
+	createdFiles, output := recordCreatedFiles(b)
 
 	switch err.(type) {
 	case nil:
@@ -148,11 +144,10 @@ func runTest(t *testing.T, godebug, filename string, tt testCase, i int, session
 		}
 	}
 
-	got := interleaveCommands(session.input, output)
-	if equivalent(got, session.fullSession) {
+	if equivalent(output, session.fullSession) {
 		return
 	}
-	errs = append(errs, fmt.Sprintf("golden transcript did not match actual transcript. Diff:\n\n%v", diff.Diff(string(session.fullSession), string(got))))
+	errs = append(errs, fmt.Sprintf("golden transcript did not match actual transcript. Diff:\n\n%v", diff.Diff(string(session.fullSession), string(output))))
 }
 
 func checkGodebugwork(t *testing.T, transcript, output []byte) ([]byte, error) {

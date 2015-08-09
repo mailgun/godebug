@@ -5,9 +5,11 @@ package main
 // This file runs tests in the testdata/single-file-tests directory
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -16,8 +18,11 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
+	"unsafe"
 
+	"github.com/mailgun/godebug/Godeps/_workspace/src/github.com/kr/pty"
 	"github.com/mailgun/godebug/Godeps/_workspace/src/github.com/kylelemons/godebug/diff"
 )
 
@@ -196,25 +201,116 @@ type session struct {
 }
 
 func runGolden(t *testing.T, test, tool string, s *session) {
-	var buf bytes.Buffer
 	cmd := exec.Command(tool, "run", goldenOutput(test))
-	if s != nil {
-		cmd.Stdin = bytes.NewReader(s.input)
-	}
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-	if err := cmd.Run(); err != nil {
-		t.Errorf("Golden file %s-out.go failed to run under '%s run': %v\n%s", test, tool, err, buf.Bytes())
+	b, err := runGodebugSession(cmd, s)
+	if err != nil {
+		t.Fatalf("%s-out.go failed under '%s run': %v", test, tool, err)
 	}
 	if s != nil {
-		checkOutput(t, s, tool, buf.Bytes())
+		checkOutput(t, s, tool, b)
 	}
 }
 
-func checkOutput(t *testing.T, want *session, tool string, output []byte) {
+// readBytes is like bufio.Reader.ReadBytes, except it takes a slice of bytes
+// as the delimiter instead of a single byte.
+func readBytes(buf *bufio.Reader, delim []byte) (line []byte, err error) {
+	if len(delim) == 0 {
+		panic("readBytes: zero-length delim")
+	}
+	for {
+		tmp, err := buf.ReadBytes(delim[len(delim)-1])
+		line = append(line, tmp...)
+		if bytes.HasSuffix(line, delim) || err != nil {
+			return line, err
+		}
+	}
+}
+
+// start assigns a pseudo-terminal tty os.File to c.Stdin, c.Stdout,
+// and c.Stderr, calls c.Start, and returns the File of the tty's
+// corresponding pty.
+//
+// It is copied from github.com/kr/pty, with a modification to set
+// the window size before starting the command. This is done so the
+// readline library will believe it is writing to a terminal.
+func start(c *exec.Cmd) (*os.File, error) {
+	p, tty, err := pty.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer tty.Close()
+	c.Stdout = tty
+	c.Stdin = tty
+	c.Stderr = tty
+
+	// Set the window size of the terminal before starting the command.
+	c.SysProcAttr = &syscall.SysProcAttr{Setctty: true, Setsid: true}
+	_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, p.Fd(), syscall.TIOCSWINSZ,
+		uintptr(unsafe.Pointer(&struct {
+			row, col       uint16
+			xpixel, ypixel uint16
+		}{
+			// These numbers are arbitrary, except that col needs to be greater than the length of the prompt.
+			5, 80, 50, 600,
+		})))
+	if errno != 0 {
+		p.Close()
+		return nil, errno
+	}
+
+	err = c.Start()
+	if err != nil {
+		p.Close()
+		return nil, err
+	}
+	return p, err
+}
+
+var ptyLock sync.Mutex
+
+func runGodebugSession(cmd *exec.Cmd, s *session) ([]byte, error) {
+	ptyLock.Lock()
+	p, err := start(cmd)
+	ptyLock.Unlock()
+	if err != nil {
+		return nil, fmt.Errorf("command failed to start: %v", err)
+	}
+	defer p.Close()
+	var b []byte
+	buf := bufio.NewReader(p)
+	if s != nil && len(s.input) != 0 {
+		for _, cmd := range bytes.Split(s.input, newline) {
+			data, err := readBytes(buf, append([]byte("\r\n"), prompt...))
+			b = append(b, data...)
+			switch err {
+			case io.EOF:
+				break
+			case nil:
+				fmt.Fprintln(p, string(cmd))
+			default:
+				return nil, fmt.Errorf("error reading from subprocess: %v", err)
+			}
+		}
+	}
+	data, readErr := ioutil.ReadAll(buf)
+	err = cmd.Wait()
+	if readErr != nil {
+		return nil, fmt.Errorf("error reading from subprocess: %v", err)
+	}
+	b = append(b, data...)
+
+	d2, e2 := ioutil.ReadAll(buf)
+	if e2 != nil {
+		panic(e2)
+	}
+	b = append(b, d2...)
+
+	return normalizeCRLF(b), err
+}
+
+func checkOutput(t *testing.T, want *session, tool string, got []byte) {
 	testName := filepath.Base(want.filename)
 	fmt.Printf("checking %s (%s)\n", testName, tool)
-	got := interleaveCommands(want.input, output)
 	if bytes.Equal(got, want.fullSession) {
 		return
 	}
@@ -234,33 +330,6 @@ func checkOutput(t *testing.T, want *session, tool string, output []byte) {
 
 var prompt = []byte("(godebug) ")
 var newline = []byte("\n")
-
-// interleaveCommands reconstructs what a terminal session would have looked like,
-// given the bytes sent to stdin and the bytes received from stdout. It assumes
-// input only happens after prompts.
-func interleaveCommands(input, output []byte) (combined []byte) {
-	linesIn := bytes.Split(input, newline)
-	if len(input) == 0 {
-		linesIn = nil
-	} else if input[len(input)-1] == '\n' {
-		linesIn = linesIn[:len(linesIn)-1]
-	}
-	chunks := bytes.Split(output, prompt)
-	for i, chunk := range chunks {
-		combined = append(combined, chunk...)
-		if i != len(chunks)-1 && len(linesIn) > 0 {
-			combined = append(combined, prompt...)
-			combined = append(combined, linesIn[0]...)
-			combined = append(combined, '\n')
-			linesIn = linesIn[1:]
-		}
-	}
-	for _, line := range linesIn {
-		combined = append(combined, line...)
-		combined = append(combined, '\n')
-	}
-	return combined
-}
 
 func parseSession(t *testing.T, filename string) *session {
 	b, err := ioutil.ReadFile(filename)

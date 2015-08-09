@@ -403,11 +403,14 @@ func printContext(lines []string, line, contextCount int) {
 
 var input = bufio.NewScanner(os.Stdin)
 
-// This gets overridden when running in a browser.
-var promptUser = func() (response string, ok bool) {
+func fallbackPrompt() (response string, ok bool) {
 	fmt.Print("(godebug) ")
 	if !input.Scan() {
 		return "", false
 	}
 	return input.Text(), true
 }
+
+// This gets overridden when running in a browser or in a terminal supported
+// by our readline package.
+var promptUser = fallbackPrompt

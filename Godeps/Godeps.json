@@ -22,8 +22,17 @@
 			"Rev": "d678387370a2eb9b5b0a33218bc8c9d8de15b6be"
 		},
 		{
+			"ImportPath": "github.com/kr/pty",
+			"Comment": "release.r56-28-g5cf931e",
+			"Rev": "5cf931ef8f76dccd0910001d74a58a7fca84a83d"
+		},
+		{
 			"ImportPath": "github.com/kylelemons/godebug/diff",
 			"Rev": "808ac284003ce2b08ef590da08f95379e8a06936"
+		},
+		{
+			"ImportPath": "github.com/peterh/liner",
+			"Rev": "1bb0d1c1a25ed393d8feb09bab039b2b1b1fbced"
 		},
 		{
 			"ImportPath": "golang.org/x/tools/go/ast/astutil",

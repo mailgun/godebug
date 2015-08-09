@@ -1,8 +1,8 @@
 godebug
 
 -------
-[![Linux Build Status](https://img.shields.io/travis/mailgun/godebug.svg?label=linux)](https://travis-ci.org/mailgun/godebug)
-[![Windows Build Status](https://img.shields.io/appveyor/ci/jeremyschlatter/godebug.svg?label=windows)](https://ci.appveyor.com/project/jeremyschlatter/godebug)
+[![Linux Build Status](https://img.shields.io/travis/mailgun/godebug/master.svg?label=linux)](https://travis-ci.org/mailgun/godebug)
+[![Windows Build Status](https://img.shields.io/appveyor/ci/jeremyschlatter/godebug/master.svg?label=windows)](https://ci.appveyor.com/project/jeremyschlatter/godebug/branch/master)
 
 
 A cross-platform debugger for Go.
