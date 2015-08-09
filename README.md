@@ -1,5 +1,9 @@
-godebug  [![build](https://img.shields.io/badge/build-passing-green.svg)](https://godebug-cross-platform-ci.appspot.com/)
+godebug
+
 -------
+[![Linux Build Status](https://img.shields.io/travis/mailgun/godebug.svg?label=linux)](https://travis-ci.org/mailgun/godebug)
+[![Windows Build Status](https://img.shields.io/appveyor/ci/jeremyschlatter/godebug.svg?label=windows)](https://ci.appveyor.com/project/jeremyschlatter/godebug)
+
 
 A cross-platform debugger for Go.
 

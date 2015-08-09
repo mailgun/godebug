@@ -3,9 +3,9 @@ language: go
 go:
   - 1.4
 
-install: true # Skip install step
+install: go install
 
-script: go test -v
+script: go test -v --parallel-tests=10
 
 os:
   - linux

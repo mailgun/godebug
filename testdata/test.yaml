@@ -204,7 +204,7 @@ creates:
     - $TMP/src/testpkg2/test_test.go
 
 transcript: |
-    godebug test: Ignoring breakpoint at foo/subfoo/subfoo.go:8 because package "subfoo" has not been flagged for instrumentation. See 'godebug help test'.//slashes
+    godebug test: Ignoring breakpoint at foo/subfoo/subfoo.go:8 because package "subfoo" has not been flagged for instrumentation. See 'godebug help test'. //slashes
 
     -> _ = "breakpoint"
     (godebug) n
