@@ -1,0 +1,12 @@
+language: go
+
+go:
+  - 1.4
+
+install: true # Skip install step
+
+script: go test -v
+
+os:
+  - linux
+  - osx
