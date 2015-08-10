@@ -241,7 +241,7 @@ desc: running with no arguments should print a useful message
 invocations:
     - cmd: godebug run
 
-transcript: "godebug run: no go files listed"
+transcript: "godebug run: no go files listed\n"
 
 nonzero_exit: true
 
@@ -250,7 +250,7 @@ desc: running with a package name should fail
 invocations:
     - cmd: godebug run foo
 
-transcript: "godebug run: no go files listed"
+transcript: "godebug run: no go files listed\n"
 
 nonzero_exit: true
 

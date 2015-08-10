@@ -18,6 +18,7 @@ transcript: |
     (godebug) print s
     "hello"
     (godebug) continue
+
 ---
 desc: godebug should work with filenames that start with numbers
 invocations:

@@ -105,8 +105,13 @@ func TestGoldenFiles(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	wg.Add(len(tests))
+	lim := make(chan bool, *parallel)
 	for test := range tests {
+		lim <- true
 		go func(test string) {
+			defer func() {
+				<-lim
+			}()
 			defer wg.Done()
 			oneTest(t, godebug, test, dirname, sessions[test])
 		}(test)
@@ -181,8 +186,8 @@ func compareGolden(t *testing.T, godebug, test string) {
 }
 
 type session struct {
-	// The bytes to send to stdin.
-	input []byte
+	// Inputs to send the debugger.
+	inputs [][]byte
 
 	// A transcript of the session as it would appear if run interactively in a terminal.
 	fullSession []byte
@@ -204,7 +209,8 @@ func runGolden(t *testing.T, test, tool string, s *session) {
 	cmd := exec.Command(tool, "run", goldenOutput(test))
 	b, err := runGodebugSession(cmd, s)
 	if err != nil {
-		t.Fatalf("%s-out.go failed under '%s run': %v", test, tool, err)
+		t.Logf("%s-out.go failed under '%s run': %v", test, tool, err)
+		t.Fatalf("%s\n", b)
 	}
 	if s != nil {
 		checkOutput(t, s, tool, b)
@@ -278,15 +284,15 @@ func runGodebugSession(cmd *exec.Cmd, s *session) ([]byte, error) {
 	defer p.Close()
 	var b []byte
 	buf := bufio.NewReader(p)
-	if s != nil && len(s.input) != 0 {
-		for _, cmd := range bytes.Split(s.input, newline) {
+	if s != nil && len(s.inputs) != 0 {
+		for _, cmd := range s.inputs {
 			data, err := readBytes(buf, append([]byte("\r\n"), prompt...))
 			b = append(b, data...)
-			switch err {
-			case io.EOF:
+			switch {
+			case err == io.EOF, isPtmxError(err):
 				break
-			case nil:
-				fmt.Fprintln(p, string(cmd))
+			case err == nil:
+				fmt.Fprint(p, string(cmd))
 			default:
 				return nil, fmt.Errorf("error reading from subprocess: %v", err)
 			}
@@ -294,18 +300,22 @@ func runGodebugSession(cmd *exec.Cmd, s *session) ([]byte, error) {
 	}
 	data, readErr := ioutil.ReadAll(buf)
 	err = cmd.Wait()
-	if readErr != nil {
-		return nil, fmt.Errorf("error reading from subprocess: %v", err)
+	if readErr != nil && !isPtmxError(readErr) {
+		return nil, fmt.Errorf("error reading from subprocess: %v, %T", readErr)
 	}
 	b = append(b, data...)
 
-	d2, e2 := ioutil.ReadAll(buf)
-	if e2 != nil {
-		panic(e2)
-	}
-	b = append(b, d2...)
-
 	return normalizeCRLF(b), err
+}
+
+func isPtmxError(err error) bool {
+	// There is a known issue with the tty library we are using where,
+	// on Linux, we get "read /dev/ptmx: input/output error" instead of EOF
+	// when a command exits.
+	//
+	// See https://github.com/kr/pty/issues/21
+	pathErr, ok := err.(*os.PathError)
+	return ok && pathErr.Op == "read" && pathErr.Path == "/dev/ptmx" && pathErr.Err == syscall.Errno(5)
 }
 
 func checkOutput(t *testing.T, want *session, tool string, got []byte) {
@@ -346,22 +356,20 @@ func parseSessionFromBytes(b []byte) *session {
 
 	b = normalizeCRLF(b)
 
-	if bytes.HasSuffix(b, newline) {
-		b = b[:len(b)-1]
-	}
-
 	lines := bytes.Split(b, newline)
 	lines, comment := removeSessionComment(lines)
 	s.comment = string(bytes.Join(comment, newline))
 
-	for _, line := range lines {
+	for i, line := range lines {
 		if bytes.HasSuffix(line, []byte{'\r'}) { // convert CRLF to LF
 			line = line[:len(line)-1]
 		}
-		line = append(line, '\n')
+		if i+1 < len(lines) {
+			line = append(line, '\n')
+		}
 
 		if bytes.HasPrefix(line, prompt) {
-			s.input = append(s.input, line[len(prompt):]...)
+			s.inputs = append(s.inputs, line[len(prompt):])
 		}
 		s.fullSession = append(s.fullSession, line...)
 	}
