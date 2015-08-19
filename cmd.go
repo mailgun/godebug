@@ -212,11 +212,10 @@ func doBuild(args []string) {
 	tmpDir := generateSourceFiles(&conf, "build")
 	tmpFile := filepath.Join(tmpDir, "godebug.-i.a.out")
 
-	// Run 'go build -i' once without changing the GOPATH.
-	// This will recompile and install any out-of-date packages.
-	// When we modify the GOPATH in the next invocation of the go tool, it will
-	// not check if any of the uninstrumented dependencies are out-of-date.
-	shellGo("", []string{"build", "-o", tmpFile, "-tags", *tags, "-i"}, goArgs)
+	if doGopathWorkaround {
+		// Rebuild stale packages, since this version of Go will not do so by default.
+		shellGo("", []string{"build", "-o", tmpFile, "-tags", *tags, "-i"}, goArgs)
+	}
 
 	if isPkg {
 		goArgs = mapPkgsToTmpDir(goArgs)
@@ -248,12 +247,11 @@ func doRun(args []string) {
 
 	tmpDir := generateSourceFiles(&conf, "run")
 
-	// Run 'go build -i' once without changing the GOPATH.
-	// This will recompile and install any out-of-date packages.
-	// When we modify the GOPATH in the next invocation of the go tool, it will
-	// not check if any of the uninstrumented dependencies are out-of-date.
-	shellGo("", []string{"build", "-o", os.DevNull, "-tags", *tags, "-i"},
-		gofiles)
+	if doGopathWorkaround {
+		// Rebuild stale packages, since this version of Go will not do so by default.
+		shellGo("", []string{"build", "-o", os.DevNull, "-tags", *tags, "-i"},
+			gofiles)
+	}
 
 	// Run 'go build', then run the binary.
 	// We do this rather than invoking 'go run' directly so we can implement
