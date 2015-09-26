@@ -38,7 +38,7 @@ func compileGodebug(t *testing.T) (filename string) {
 	if runtime.GOOS == "windows" {
 		exe = ".exe"
 	}
-	cmd := exec.Command("go", "build", "-o", godebug+exe, "-ldflags=-X github.com/mailgun/godebug/lib.buildMode=test")
+	cmd := exec.Command("go", "build", "-o", godebug+exe, "-ldflags="+buildModeFlag)
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {

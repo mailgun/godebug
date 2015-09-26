@@ -10,3 +10,6 @@ package main
 //
 // See https://github.com/golang/go/issues/10509
 const doGopathWorkaround = true
+
+// Old syntax for -X flag.
+const buildModeFlag = "-X github.com/mailgun/godebug/lib.buildMode test"
