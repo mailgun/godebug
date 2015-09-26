@@ -26,6 +26,10 @@
 			"Rev": "808ac284003ce2b08ef590da08f95379e8a06936"
 		},
 		{
+			"ImportPath": "github.com/peterh/liner",
+			"Rev": "1bb0d1c1a25ed393d8feb09bab039b2b1b1fbced"
+		},
+		{
 			"ImportPath": "golang.org/x/tools/go/ast/astutil",
 			"Rev": "3ecc311976cc3f7c7b7a50314929bdc1b07c4c9d"
 		},

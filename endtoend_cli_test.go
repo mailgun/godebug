@@ -119,7 +119,8 @@ func runTest(t *testing.T, godebug, filename string, tt testCase, i int, session
 	// Because we set `logFileEnvVar` above, godebug will print the
 	// files it creates to stdout. Parse those lines and then pretend
 	// they were not printed.
-	createdFiles, output := recordCreatedFiles(buf.Bytes())
+	output := stripTestPrefix(buf.Bytes())
+	createdFiles, output := recordCreatedFiles(output)
 
 	switch err.(type) {
 	case nil:

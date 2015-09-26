@@ -96,6 +96,9 @@ func TestUpdatedSource(t *testing.T) {
 	copyFiles(t,
 		filepath.Join(tmpDir, "src", "github.com", "mailgun", "godebug", "Godeps", "_workspace", "src", "github.com", "0xfaded", "eval"),
 		filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "mailgun", "godebug", "Godeps", "_workspace", "src", "github.com", "0xfaded", "eval"))
+	copyFiles(t,
+		filepath.Join(tmpDir, "src", "github.com", "mailgun", "godebug", "Godeps", "_workspace", "src", "github.com", "peterh", "liner"),
+		filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "mailgun", "godebug", "Godeps", "_workspace", "src", "github.com", "peterh", "liner"))
 
 	// Install the first version of foo.
 	cmd := exec.Command("go", "install", "foo")
@@ -122,6 +125,7 @@ func TestUpdatedSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("godebug run failed: %v\n\n%s", err, out)
 	}
+	out = stripTestPrefix(out)
 	if g, w := string(bytes.TrimSpace(out)), "foo v2"; g != w {
 		if g == "foo v1" {
 			t.Error("godebug run failed to recompile an out-of-date package")
@@ -142,6 +146,7 @@ func TestUpdatedSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("godebug run failed: %v\n\n%s", err, out)
 	}
+	out = stripTestPrefix(out)
 	if g, w := string(bytes.Split(out, newline)[0]), "foo v2"; g != w {
 		if g == "foo v1" {
 			t.Error("godebug test failed to recompile an out-of-date package")
