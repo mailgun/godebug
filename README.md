@@ -1,4 +1,4 @@
-### DEPRECATED! There will be no further development. Please use https://github.com/derekparker/delve.
+### DEPRECATED! There will be no further development. Please use https://github.com/derekparker/delve. But if you want to keep the project going and ready to become its maintaner please contact us and we can make you one.
 
 
 godebug
