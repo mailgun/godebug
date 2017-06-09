@@ -1,3 +1,6 @@
+### DEPRECATED! There will be no further development. Please use https://github.com/derekparker/delve.
+
+
 godebug
 
 -------
